@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+title: calibrated-ml-lab
+message: If you use this repository, please cite it as below.
+type: software
+authors:
+  - family-names: Ribeiro
+    given-names: Diogo
+repository-code: https://github.com/DiogoRibeiro7/calibrated-ml-lab
+license: MIT
+version: 0.1.0

@@ -1,0 +1,2 @@
+method,alpha,qhat,coverage,average_width,median_width,min_width,max_width
+split_conformal_regression,0.1,1.3408655872965332,0.7583333333333333,2.681731174593067,2.6817311745930663,2.681731174593066,2.6817311745930668

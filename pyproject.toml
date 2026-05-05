@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "calibrated-ml-lab"
+version = "0.1.0"
+description = "Probability calibration and uncertainty estimation workbench for machine learning."
+authors = ["Diogo Ribeiro <diogo_dj@hotmail.com>"]
+readme = "README.md"
+packages = [{ include = "calibrated_ml_lab", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+numpy = "^1.26.0"
+pandas = "^2.2.0"
+scikit-learn = "^1.4.0"
+scipy = "^1.12.0"
+matplotlib = "^3.8.0"
+typer = { version = "^0.12.0", extras = ["all"] }
+rich = "^13.7.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+ruff = "^0.6.0"
+mypy = "^1.10.0"
+nbformat = "^5.10.0"
+
+[tool.poetry.scripts]
+calibrated-lab = "calibrated_ml_lab.cli:app"
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true

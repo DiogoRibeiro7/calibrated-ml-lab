@@ -3,7 +3,7 @@
 ## Immediate engineering priorities
 
 - [x] Establish reproducible dependencies and green lint, formatting, type, test,
-  and package-build checks on Python 3.10–3.12.
+  and package-build checks on Python 3.11–3.12, with patched Pillow and pytest.
 - [x] Exercise CLI help, data generation, and the complete offline report in CI.
 - [ ] Separate calibration-method selection, calibrator fitting, conformal
   calibration, and final evaluation to remove classification test leakage.

@@ -109,8 +109,13 @@ test evaluation. Separating these stages is the next correctness milestone.
 
 ## Development checks
 
-Use Python 3.10, 3.11, or 3.12 and Poetry 2.2.1. Commit dependency changes together
+Use Python 3.11 or 3.12 and Poetry 2.2.1. Commit dependency changes together
 with `poetry.lock` so local runs and CI install the same resolved dependencies.
+
+Python 3.10 is no longer supported: patched Pillow 13, used by Matplotlib,
+requires Python 3.11 or newer. Select a supported interpreter with
+`poetry env use 3.11` or `poetry env use 3.12` before reinstalling dependencies.
+The package explicitly requires Pillow 13 to avoid selecting affected 12.x versions.
 
 ```bash
 poetry install --with dev

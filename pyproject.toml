@@ -7,12 +7,14 @@ readme = "README.md"
 packages = [{ include = "calibrated_ml_lab", from = "src" }]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
+python = ">=3.11,<3.13"
 numpy = "^1.26.0"
 pandas = "^2.2.0"
 scikit-learn = "^1.4.0"
 scipy = "^1.12.0"
 matplotlib = "^3.8.0"
+# Keep Matplotlib's image dependency above the affected Pillow 12.x releases.
+pillow = ">=13,<14"
 typer = ">=0.16,<0.28"
 rich = "^13.7.0"
 tabulate = "^0.9.0"
@@ -33,14 +35,14 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

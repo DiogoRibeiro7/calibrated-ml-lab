@@ -28,7 +28,11 @@ def generate_classification_data(rows: int = 5_000, seed: int = 42) -> pd.DataFr
     region = rng.choice(["North", "South", "East", "West"], rows, p=[0.25, 0.25, 0.25, 0.25])
     segment = rng.choice(["A", "B", "C"], rows, p=[0.45, 0.35, 0.20])
 
-    region_effect = pd.Series(region).map({"North": 0.15, "South": -0.05, "East": 0.25, "West": -0.15}).to_numpy()
+    region_effect = (
+        pd.Series(region)
+        .map({"North": 0.15, "South": -0.05, "East": 0.25, "West": -0.15})
+        .to_numpy()
+    )
     segment_effect = pd.Series(segment).map({"A": -0.10, "B": 0.05, "C": 0.35}).to_numpy()
 
     linear = (

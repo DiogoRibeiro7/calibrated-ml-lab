@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from calibrated_ml_lab.sample_data import generate_classification_data, generate_regression_data, write_sample_data
+from calibrated_ml_lab.sample_data import (
+    generate_classification_data,
+    generate_regression_data,
+    write_sample_data,
+)
 
 
 def test_generate_classification_data_has_target():

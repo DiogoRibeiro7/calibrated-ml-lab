@@ -29,7 +29,7 @@ class PlattScaler:
     def __init__(self) -> None:
         self.model: LogisticRegression | None = None
 
-    def fit(self, probabilities: np.ndarray, y_true: np.ndarray) -> "PlattScaler":
+    def fit(self, probabilities: np.ndarray, y_true: np.ndarray) -> PlattScaler:
         """Fit the calibrator."""
 
         p = _clip_probabilities(probabilities)
@@ -47,7 +47,7 @@ class PlattScaler:
         if self.model is None:
             raise RuntimeError("PlattScaler must be fitted before transform")
         p = _clip_probabilities(probabilities)
-        return self.model.predict_proba(logit(p).reshape(-1, 1))[:, 1]
+        return np.asarray(self.model.predict_proba(logit(p).reshape(-1, 1))[:, 1], dtype=float)
 
 
 class IsotonicCalibrator:
@@ -56,7 +56,7 @@ class IsotonicCalibrator:
     def __init__(self) -> None:
         self.model: IsotonicRegression | None = None
 
-    def fit(self, probabilities: np.ndarray, y_true: np.ndarray) -> "IsotonicCalibrator":
+    def fit(self, probabilities: np.ndarray, y_true: np.ndarray) -> IsotonicCalibrator:
         """Fit isotonic regression on probabilities."""
 
         p = _clip_probabilities(probabilities)
@@ -84,7 +84,7 @@ class TemperatureScaler:
     def __init__(self) -> None:
         self.temperature_: float | None = None
 
-    def fit(self, probabilities: np.ndarray, y_true: np.ndarray) -> "TemperatureScaler":
+    def fit(self, probabilities: np.ndarray, y_true: np.ndarray) -> TemperatureScaler:
         """Fit the temperature parameter."""
 
         p = _clip_probabilities(probabilities)
@@ -108,4 +108,4 @@ class TemperatureScaler:
         if self.temperature_ is None:
             raise RuntimeError("TemperatureScaler must be fitted before transform")
         p = _clip_probabilities(probabilities)
-        return expit(logit(p) / self.temperature_)
+        return np.asarray(expit(logit(p) / self.temperature_), dtype=float)

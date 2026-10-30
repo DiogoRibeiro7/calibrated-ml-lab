@@ -1,5 +1,13 @@
 # Roadmap
 
+## Immediate engineering priorities
+
+- [x] Establish reproducible dependencies and green lint, formatting, type, test,
+  and package-build checks on Python 3.10–3.12.
+- [x] Exercise CLI help, data generation, and the complete offline report in CI.
+- [ ] Separate calibration-method selection, calibrator fitting, conformal
+  calibration, and final evaluation to remove classification test leakage.
+
 ## v0.1 — Local calibration and uncertainty workbench
 
 - [x] Synthetic binary classification dataset.

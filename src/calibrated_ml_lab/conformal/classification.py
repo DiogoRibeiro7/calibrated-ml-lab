@@ -46,7 +46,9 @@ def classification_set_coverage(
     y = np.asarray(y_true, dtype=int)
     if len(y) != len(prediction_sets):
         raise ValueError("y_true and prediction_sets must have the same length")
-    covered = np.where(y == 1, prediction_sets["include_1"].to_numpy(), prediction_sets["include_0"].to_numpy())
+    covered = np.where(
+        y == 1, prediction_sets["include_1"].to_numpy(), prediction_sets["include_0"].to_numpy()
+    )
     return {
         "coverage": float(np.mean(covered)),
         "average_set_size": float(prediction_sets["set_size"].mean()),

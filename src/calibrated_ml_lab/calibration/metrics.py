@@ -9,7 +9,9 @@ from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 EPS = 1e-12
 
 
-def _validate_binary_inputs(y_true: np.ndarray, y_prob: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def _validate_binary_inputs(
+    y_true: np.ndarray, y_prob: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """Validate and coerce binary labels and probabilities."""
 
     y = np.asarray(y_true, dtype=int)
@@ -82,7 +84,9 @@ def maximum_calibration_error(y_true: np.ndarray, y_prob: np.ndarray, n_bins: in
     return float(non_empty["absolute_gap"].max())
 
 
-def probabilistic_metrics(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10) -> dict[str, float]:
+def probabilistic_metrics(
+    y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10
+) -> dict[str, float]:
     """Compute discrimination and calibration metrics for binary probabilities."""
 
     y, p = _validate_binary_inputs(y_true, y_prob)

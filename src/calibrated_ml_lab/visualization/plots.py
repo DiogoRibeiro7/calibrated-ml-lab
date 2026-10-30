@@ -12,7 +12,10 @@ from calibrated_ml_lab.calibration.metrics import calibration_bins
 
 
 def plot_reliability_diagram(
-    y_true: np.ndarray, probability_columns: dict[str, np.ndarray], output_path: Path, n_bins: int = 10
+    y_true: np.ndarray,
+    probability_columns: dict[str, np.ndarray],
+    output_path: Path,
+    n_bins: int = 10,
 ) -> None:
     """Plot reliability curves for one or more probability estimates."""
 
@@ -39,7 +42,9 @@ def plot_reliability_diagram(
     plt.close(fig)
 
 
-def plot_probability_histogram(probability_columns: dict[str, np.ndarray], output_path: Path) -> None:
+def plot_probability_histogram(
+    probability_columns: dict[str, np.ndarray], output_path: Path
+) -> None:
     """Plot probability distributions."""
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -90,7 +95,9 @@ def plot_conformal_regression_intervals(
     x = np.arange(len(order))
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    ax.errorbar(x, pred[order], yerr=[pred[order] - lo[order], hi[order] - pred[order]], fmt="o", alpha=0.6)
+    ax.errorbar(
+        x, pred[order], yerr=[pred[order] - lo[order], hi[order] - pred[order]], fmt="o", alpha=0.6
+    )
     ax.scatter(x, y[order], s=12, label="Observed")
     ax.set_xlabel("Ordered sample index")
     ax.set_ylabel("Target")

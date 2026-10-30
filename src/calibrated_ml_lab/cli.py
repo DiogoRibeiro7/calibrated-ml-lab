@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -16,24 +17,30 @@ console = Console()
 
 @app.command("sample-data")
 def sample_data(
-    output_dir: Path = typer.Option(Path("data/raw"), help="Directory for generated CSV files."),
-    rows: int = typer.Option(5_000, help="Number of classification rows to generate."),
-    seed: int = typer.Option(42, help="Random seed."),
+    output_dir: Annotated[Path, typer.Option(help="Directory for generated CSV files.")] = Path(
+        "data/raw"
+    ),
+    rows: Annotated[int, typer.Option(help="Number of classification rows to generate.")] = 5_000,
+    seed: Annotated[int, typer.Option(help="Random seed.")] = 42,
 ) -> None:
     """Generate synthetic classification and regression datasets."""
 
-    classification_path, regression_path = write_sample_data(output_dir=output_dir, rows=rows, seed=seed)
+    classification_path, regression_path = write_sample_data(
+        output_dir=output_dir, rows=rows, seed=seed
+    )
     console.print(f"Wrote classification data to [bold]{classification_path}[/bold]")
     console.print(f"Wrote regression data to [bold]{regression_path}[/bold]")
 
 
 @app.command("run")
 def run(
-    input: Path = typer.Option(..., help="Classification CSV path."),
-    regression_input: Path = typer.Option(..., help="Regression CSV path."),
-    output_dir: Path = typer.Option(Path("reports/sample_run"), help="Output directory."),
-    target: str = typer.Option("label", help="Classification target column."),
-    regression_target: str = typer.Option("y", help="Regression target column."),
+    input: Annotated[Path, typer.Option(help="Classification CSV path.")],
+    regression_input: Annotated[Path, typer.Option(help="Regression CSV path.")],
+    output_dir: Annotated[Path, typer.Option(help="Output directory.")] = Path(
+        "reports/sample_run"
+    ),
+    target: Annotated[str, typer.Option(help="Classification target column.")] = "label",
+    regression_target: Annotated[str, typer.Option(help="Regression target column.")] = "y",
 ) -> None:
     """Run the full calibration and uncertainty workflow."""
 

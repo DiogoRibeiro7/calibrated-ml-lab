@@ -10,6 +10,31 @@ Discrimination asks whether the model ranks positive examples above negative exa
 
 Calibration asks whether predicted probabilities correspond to observed frequencies. If a group of samples receives predicted probability 0.70, roughly 70% of those samples should be positive.
 
+## Binary metric and threshold inputs
+
+Calibration metrics and decision-threshold analysis require nonempty,
+one-dimensional arrays of matching lengths. Labels must be exactly 0 or 1 and
+probabilities must be finite and in [0, 1]. Fractional labels, NaN, infinity,
+complex values, and mismatched shapes raise `ValueError` instead of being
+truncated or silently broadcast.
+
+Calibration bins, ECE, MCE, Brier score, and ROC AUC use the original probabilities,
+including exact 0 and 1. Only log-loss inputs are clipped to [1e-12, 1 - 1e-12]
+to keep logarithms finite. Clipping scores before ROC AUC can introduce ties and
+change the reported ranking. Single-class evaluation is supported: ROC AUC is
+reported as NaN because it is undefined, while the other metrics remain available.
+
+The bin count must be a positive integer. Bins include their left endpoint;
+probability 1 belongs to the final bin. Empty bins keep zero counts, weights, and
+calibration gaps, with NaN means and observed rates.
+
+Decision thresholds must be a nonempty, finite vector in [0, 1]. The decision
+rule is `probability >= threshold`, including equality and endpoint thresholds.
+Supplied order and duplicates are preserved; the default is 19 thresholds from
+0.05 through 0.95. False-positive and false-negative costs must be finite,
+nonnegative scalars; zero costs are allowed. Expected cost is the weighted sum
+of error rates, so finite costs do not overflow merely from summing across rows.
+
 ## Uncertainty
 
 Uncertainty estimation asks how much confidence we should place in predictions, intervals, or prediction sets. Conformal methods provide distribution-free finite-sample coverage under exchangeability assumptions.

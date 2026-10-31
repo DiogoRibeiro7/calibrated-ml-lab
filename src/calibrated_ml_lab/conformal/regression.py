@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from calibrated_ml_lab.conformal._utils import as_vector, conformal_quantile, nonnegative_threshold
+from calibrated_ml_lab._validation import as_vector
+from calibrated_ml_lab.conformal._utils import conformal_quantile, nonnegative_threshold
 
 
 def conformal_residual_quantile(

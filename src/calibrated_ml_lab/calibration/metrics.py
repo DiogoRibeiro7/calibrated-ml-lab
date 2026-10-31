@@ -6,36 +6,25 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 
+from calibrated_ml_lab._validation import binary_inputs
+
 EPS = 1e-12
-
-
-def _validate_binary_inputs(
-    y_true: np.ndarray, y_prob: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """Validate and coerce binary labels and probabilities."""
-
-    y = np.asarray(y_true, dtype=int)
-    p = np.asarray(y_prob, dtype=float)
-    if y.ndim != 1 or p.ndim != 1:
-        raise ValueError("y_true and y_prob must be one-dimensional")
-    if len(y) != len(p):
-        raise ValueError("y_true and y_prob must have the same length")
-    if len(y) == 0:
-        raise ValueError("inputs must not be empty")
-    if not np.all((p >= 0) & (p <= 1)):
-        raise ValueError("probabilities must be between 0 and 1")
-    return y, np.clip(p, EPS, 1 - EPS)
 
 
 def calibration_bins(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10) -> pd.DataFrame:
     """Compute calibration-bin summary statistics.
 
-    Bins are equal-width over [0, 1]. Empty bins are preserved with zero counts.
+    Bins are equal-width over [0, 1], left-inclusive with 1 in the last bin.
+    Empty bins are preserved with zero counts. Probabilities are not clipped.
     """
 
-    if n_bins <= 0:
-        raise ValueError("n_bins must be positive")
-    y, p = _validate_binary_inputs(y_true, y_prob)
+    if (
+        isinstance(n_bins, bool | np.bool_)
+        or not isinstance(n_bins, int | np.integer)
+        or n_bins <= 0
+    ):
+        raise ValueError("n_bins must be a positive integer")
+    y, p = binary_inputs(y_true, y_prob)
     edges = np.linspace(0.0, 1.0, n_bins + 1)
     bin_id = np.clip(np.digitize(p, edges[1:-1], right=False), 0, n_bins - 1)
 
@@ -87,12 +76,15 @@ def maximum_calibration_error(y_true: np.ndarray, y_prob: np.ndarray, n_bins: in
 def probabilistic_metrics(
     y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10
 ) -> dict[str, float]:
-    """Compute discrimination and calibration metrics for binary probabilities."""
+    """Compute binary metrics, clipping only log-loss inputs.
 
-    y, p = _validate_binary_inputs(y_true, y_prob)
+    ROC AUC is NaN when only one class is present.
+    """
+
+    y, p = binary_inputs(y_true, y_prob)
     metrics = {
         "brier_score": float(brier_score_loss(y, p)),
-        "log_loss": float(log_loss(y, p, labels=[0, 1])),
+        "log_loss": float(log_loss(y, np.clip(p, EPS, 1 - EPS), labels=[0, 1])),
         "ece": expected_calibration_error(y, p, n_bins=n_bins),
         "mce": maximum_calibration_error(y, p, n_bins=n_bins),
     }

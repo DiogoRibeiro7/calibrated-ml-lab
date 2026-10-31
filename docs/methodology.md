@@ -25,6 +25,21 @@ Uncertainty estimation asks how much confidence we should place in predictions, 
 - Split conformal classification using nonconformity score `1 - p_true`.
 - Split conformal regression using absolute residual scores.
 
+Both methods use the score at rank `ceil((n + 1) * (1 - alpha))` in the sorted
+calibration scores, counting from one. This is an order statistic, not an
+interpolated quantile. If the rank exceeds `n`, the threshold is positive infinity:
+classification sets contain both labels and regression intervals cover the entire
+real line. Capping the rank at `n` would understate uncertainty in this case.
+See the [coverage proof in Appendix D of Angelopoulos and Bates](https://arxiv.org/html/2107.07511v6)
+for the ranked-score rule and the infinite-threshold case.
+
+Conformal functions require nonempty, one-dimensional inputs of matching lengths.
+Labels must be exactly 0 or 1; probabilities must be finite and in [0, 1]; regression
+targets and predictions must be finite. Invalid values raise `ValueError` rather
+than being truncated or silently broadcast. Interval metrics accept ordered
+infinite bounds, report infinite widths, and reject NaN or reversed bounds.
+Prediction-set metrics check that membership columns and set sizes agree.
+
 ## Classification evaluation protocol
 
 Five disjoint subsets have separate responsibilities (fractions are approximate
@@ -47,7 +62,8 @@ changing held-out labels cannot change the development partitions or fitted mode
 Each development subset must contain both binary classes. Small or heavily
 imbalanced datasets can fail this requirement and produce an explicit error;
 the workflow never borrows held-out rows to make a fit succeed. At alpha 0.1,
-at least nine conformal rows are required to estimate a finite conformal threshold.
+fewer than nine conformal rows produce an infinite threshold and full prediction
+sets. Reports retain that uncertainty explicitly instead of rejecting the run.
 
 Method selection uses equal-width-bin ECE with the same `n_bins` used for final
 evaluation. Exact ties follow candidate order: uncalibrated, Platt, isotonic,

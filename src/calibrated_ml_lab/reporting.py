@@ -72,9 +72,15 @@ describe probability quality; ROC AUC describes discrimination.
 
 {_markdown_table(conformal_classification)}
 
+An infinite qhat means there are too few calibration rows for a finite threshold
+at the requested alpha; every prediction set then includes both labels.
+
 ## Split-conformal regression
 
 {_markdown_table(conformal_regression)}
+
+An infinite qhat produces unbounded intervals and infinite widths. These intervals
+cover every finite target but provide no useful precision; plots label them explicitly.
 
 ## Decision-threshold analysis
 

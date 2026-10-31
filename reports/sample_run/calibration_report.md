@@ -54,13 +54,19 @@ describe probability quality; ROC AUC describes discrimination.
 
 | method                |   alpha |     qhat |   coverage |   average_set_size |   singleton_rate |   empty_set_rate |
 |:----------------------|--------:|---------:|-----------:|-------------------:|-----------------:|-----------------:|
-| split_conformal_platt |     0.1 | 0.836201 |   0.970833 |            1.48333 |         0.516667 |                0 |
+| split_conformal_platt |     0.1 | 0.829395 |   0.970833 |             1.4625 |           0.5375 |                0 |
+
+An infinite qhat means there are too few calibration rows for a finite threshold
+at the requested alpha; every prediction set then includes both labels.
 
 ## Split-conformal regression
 
 | method                     |   alpha |    qhat |   coverage |   average_width |   median_width |   min_width |   max_width |
 |:---------------------------|--------:|--------:|-----------:|----------------:|---------------:|------------:|------------:|
-| split_conformal_regression |     0.1 | 1.34087 |   0.758333 |         2.68173 |        2.68173 |     2.68173 |     2.68173 |
+| split_conformal_regression |     0.1 | 1.30217 |   0.741667 |         2.60434 |        2.60434 |     2.60434 |     2.60434 |
+
+An infinite qhat produces unbounded intervals and infinite widths. These intervals
+cover every finite target but provide no useful precision; plots label them explicitly.
 
 ## Decision-threshold analysis
 

@@ -111,6 +111,10 @@ test metrics never select or refit it. Reports include selection metrics and spl
 sizes separately from final test metrics. See [methodology](docs/methodology.md)
 for splitting assumptions and small-sample requirements.
 
+Conformal thresholds use the exact ranked calibration score. When there are too
+few calibration rows for the requested coverage, reports show an infinite threshold:
+classification sets contain both labels and regression intervals are unbounded.
+
 Threshold curves describe the final test set and must not be used to claim
 validated deployment performance for a threshold chosen from those curves.
 

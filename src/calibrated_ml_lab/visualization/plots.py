@@ -95,9 +95,27 @@ def plot_conformal_regression_intervals(
     x = np.arange(len(order))
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    ax.errorbar(
-        x, pred[order], yerr=[pred[order] - lo[order], hi[order] - pred[order]], fmt="o", alpha=0.6
-    )
+    finite = np.isfinite(lo[order]) & np.isfinite(hi[order])
+    if finite.any():
+        shown = order[finite]
+        ax.errorbar(
+            x[finite],
+            pred[shown],
+            yerr=[pred[shown] - lo[shown], hi[shown] - pred[shown]],
+            fmt="o",
+            alpha=0.6,
+        )
+    if not finite.all():
+        ax.scatter(
+            x[~finite], pred[order[~finite]], marker="x", label="Predictions (unbounded intervals)"
+        )
+        ax.text(
+            0.02,
+            0.98,
+            f"Unbounded intervals: {int((~finite).sum())} of {len(order)} shown",
+            transform=ax.transAxes,
+            va="top",
+        )
     ax.scatter(x, y[order], s=12, label="Observed")
     ax.set_xlabel("Ordered sample index")
     ax.set_ylabel("Target")

@@ -7,6 +7,8 @@
 - [x] Exercise CLI help, data generation, and the complete offline report in CI.
 - [x] Separate calibration-method selection, calibrator fitting, conformal
   calibration, and final evaluation to remove classification test leakage.
+- [x] Use exact conformal order statistics, preserve infinite thresholds for small
+  calibration samples, and validate conformal inputs and coverage summaries.
 
 ## v0.1 — Local calibration and uncertainty workbench
 

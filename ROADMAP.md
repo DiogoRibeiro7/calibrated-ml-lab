@@ -9,6 +9,8 @@
   calibration, and final evaluation to remove classification test leakage.
 - [x] Use exact conformal order statistics, preserve infinite thresholds for small
   calibration samples, and validate conformal inputs and coverage summaries.
+- [x] Preserve probability endpoints and score rankings in binary metrics, and
+  validate metric inputs, decision thresholds, and error costs consistently.
 
 ## v0.1 — Local calibration and uncertainty workbench
 

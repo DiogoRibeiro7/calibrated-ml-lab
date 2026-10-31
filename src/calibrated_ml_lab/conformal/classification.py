@@ -5,15 +5,14 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from calibrated_ml_lab.conformal._utils import (
+from calibrated_ml_lab._validation import (
     as_vector,
     binary_labels,
-    conformal_quantile,
-    nonnegative_threshold,
 )
-from calibrated_ml_lab.conformal._utils import (
+from calibrated_ml_lab._validation import (
     probabilities as validate_probabilities,
 )
+from calibrated_ml_lab.conformal._utils import conformal_quantile, nonnegative_threshold
 
 
 def conformal_classification_threshold(

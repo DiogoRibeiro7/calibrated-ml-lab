@@ -59,10 +59,24 @@ def test_cli_generates_data_and_complete_report(tmp_path: Path) -> None:
     assert "## Split-conformal classification" in report
     assert "## Split-conformal regression" in report
     assert "## Decision-threshold analysis" in report
+    assert "## Calibration-method selection" in report
+    assert "## Classification data splits" in report
+    assert "not a validated deployment recommendation" in report
 
     metrics = pd.read_csv(output / "tables/calibration_metrics.csv")
     assert set(metrics["model"]) == {"uncalibrated", "platt", "isotonic", "temperature"}
     assert metrics[["ece", "brier_score", "log_loss"]].notna().all().all()
+    selection = pd.read_csv(output / "tables/selection_metrics.csv")
+    selected_name = selection.loc[selection["selected"], "model"].item()
+    assert metrics.loc[metrics["selected"], "model"].tolist() == [selected_name]
+    assert f"Selected method: **{selected_name}**" in report
+    splits = pd.read_csv(output / "tables/classification_splits.csv")
+    assert splits["rows"].sum() == 400
+    assert set(splits["split"]) == {"train", "calibrator_fit", "selection", "conformal", "test"}
+    assert (
+        len(pd.read_csv(output / "scored_classification_test.csv"))
+        == splits.set_index("split").loc["test", "rows"]
+    )
     for name in ["conformal_classification_summary.csv", "conformal_regression_summary.csv"]:
         summary = pd.read_csv(output / "tables" / name)
         assert summary["coverage"].between(0, 1).all()

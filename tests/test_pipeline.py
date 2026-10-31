@@ -47,10 +47,33 @@ def test_split_rejects_invalid_binary_targets(labels: list[float]) -> None:
 
 
 def test_split_rejects_insufficient_data_without_reusing_rows() -> None:
-    with pytest.raises(ValueError, match="at least 9 conformal"):
-        pipeline._split_classification_data(pd.DataFrame({"label": [0, 1] * 30}), "label")
+    with pytest.raises(ValueError, match="provide more rows"):
+        pipeline._split_classification_data(pd.DataFrame({"label": [0, 1]}), "label")
     with pytest.raises(ValueError, match="each need both classes|provide more rows"):
         pipeline._split_classification_data(pd.DataFrame({"label": [0] * 399 + [1]}), "label")
+
+
+def test_small_calibration_split_returns_both_classes(tmp_path: Path) -> None:
+    frame = pd.DataFrame({"feature": np.arange(60), "label": [0, 1] * 30})
+    outputs = pipeline.run_classification_calibration(frame, "label", tmp_path)
+    summary = outputs["conformal_classification"].iloc[0]
+    assert summary["qhat"] == np.inf
+    assert summary["coverage"] == 1.0
+    assert summary["average_set_size"] == 2.0
+    assert summary["singleton_rate"] == 0.0
+    scored = pd.read_csv(tmp_path / "scored_classification_test.csv")
+    assert scored["conformal_include_0"].all() and scored["conformal_include_1"].all()
+
+
+def test_small_regression_calibration_exports_unbounded_intervals(tmp_path: Path) -> None:
+    frame = pd.DataFrame({"feature": np.arange(20), "y": np.arange(20) / 10})
+    summary = pipeline.run_regression_conformal(frame, "y", tmp_path).iloc[0]
+    assert summary["qhat"] == summary["average_width"] == np.inf
+    assert summary["coverage"] == 1.0
+    scored = pd.read_csv(tmp_path / "scored_regression_test.csv")
+    assert np.isneginf(scored["interval_lower"]).all()
+    assert np.isposinf(scored["interval_upper"]).all()
+    assert (tmp_path / "figures/conformal_regression_intervals.png").is_file()
 
 
 @pytest.mark.parametrize("changed_split", ["test", "conformal"])

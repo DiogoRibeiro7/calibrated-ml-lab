@@ -75,8 +75,6 @@ def _split_classification_data(
         raise ValueError(
             "training, calibrator fitting, and method selection each need both classes"
         )
-    if len(conformal) < 9:
-        raise ValueError("alpha=0.1 needs at least 9 conformal calibration rows; provide more data")
     return splits
 
 

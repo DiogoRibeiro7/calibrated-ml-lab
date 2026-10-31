@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -41,8 +40,14 @@ def _split_three_way(
     """Split data into train, calibration, and test sets."""
 
     train, temp = train_test_split(frame, test_size=0.4, random_state=seed, stratify=frame[target])
-    calibration, test = train_test_split(temp, test_size=0.5, random_state=seed, stratify=temp[target])
-    return train.reset_index(drop=True), calibration.reset_index(drop=True), test.reset_index(drop=True)
+    calibration, test = train_test_split(
+        temp, test_size=0.5, random_state=seed, stratify=temp[target]
+    )
+    return (
+        train.reset_index(drop=True),
+        calibration.reset_index(drop=True),
+        test.reset_index(drop=True),
+    )
 
 
 def run_classification_calibration(
@@ -79,7 +84,10 @@ def run_classification_calibration(
     figures_dir.mkdir(parents=True, exist_ok=True)
 
     for name, probabilities in probability_sets.items():
-        row = {"model": name, **probabilistic_metrics(y_test, probabilities, n_bins=n_bins)}
+        row: dict[str, float | str] = {
+            "model": name,
+            **probabilistic_metrics(y_test, probabilities, n_bins=n_bins),
+        }
         metrics_rows.append(row)
         calibration_bins(y_test, probabilities, n_bins=n_bins).to_csv(
             tables_dir / f"calibration_bins_{name}.csv", index=False
@@ -98,10 +106,19 @@ def run_classification_calibration(
         "temperature": temperature.transform(cal_prob),
     }[best_model_name]
 
-    qhat = conformal_classification_threshold(calibration[target].to_numpy(), best_cal_prob, alpha=0.1)
+    qhat = conformal_classification_threshold(
+        calibration[target].to_numpy(), best_cal_prob, alpha=0.1
+    )
     prediction_sets = conformal_prediction_sets(best_test_prob, threshold=qhat)
     conformal_summary = pd.DataFrame(
-        [{"method": f"split_conformal_{best_model_name}", "alpha": 0.1, "qhat": qhat, **classification_set_coverage(y_test, prediction_sets)}]
+        [
+            {
+                "method": f"split_conformal_{best_model_name}",
+                "alpha": 0.1,
+                "qhat": qhat,
+                **classification_set_coverage(y_test, prediction_sets),
+            }
+        ]
     )
     conformal_summary.to_csv(tables_dir / "conformal_classification_summary.csv", index=False)
 
@@ -116,7 +133,9 @@ def run_classification_calibration(
     scored["conformal_set_size"] = prediction_sets["set_size"].to_numpy()
     scored.to_csv(output_dir / "scored_classification_test.csv", index=False)
 
-    plot_reliability_diagram(y_test, probability_sets, figures_dir / "reliability_diagram.png", n_bins=n_bins)
+    plot_reliability_diagram(
+        y_test, probability_sets, figures_dir / "reliability_diagram.png", n_bins=n_bins
+    )
     plot_probability_histogram(probability_sets, figures_dir / "probability_histogram.png")
     plot_threshold_tradeoff(thresholds, figures_dir / "threshold_tradeoff.png")
 
@@ -132,7 +151,9 @@ def run_regression_conformal(frame: pd.DataFrame, target: str, output_dir: Path)
 
     train, temp = train_test_split(frame, test_size=0.4, random_state=42)
     calibration, test = train_test_split(temp, test_size=0.5, random_state=42)
-    feature_columns = [col for col in frame.columns if col != target and pd.api.types.is_numeric_dtype(frame[col])]
+    feature_columns = [
+        col for col in frame.columns if col != target and pd.api.types.is_numeric_dtype(frame[col])
+    ]
 
     model = build_regression_pipeline(feature_columns)
     model.fit(train[feature_columns], train[target])
@@ -140,7 +161,16 @@ def run_regression_conformal(frame: pd.DataFrame, target: str, output_dir: Path)
     test_pred = model.predict(test[feature_columns])
     qhat = conformal_residual_quantile(calibration[target].to_numpy(), cal_pred, alpha=0.1)
     lower, upper = conformal_intervals(test_pred, qhat)
-    summary = pd.DataFrame([{"method": "split_conformal_regression", "alpha": 0.1, "qhat": qhat, **regression_interval_metrics(test[target].to_numpy(), lower, upper)}])
+    summary = pd.DataFrame(
+        [
+            {
+                "method": "split_conformal_regression",
+                "alpha": 0.1,
+                "qhat": qhat,
+                **regression_interval_metrics(test[target].to_numpy(), lower, upper),
+            }
+        ]
+    )
 
     tables_dir = output_dir / "tables"
     figures_dir = output_dir / "figures"
@@ -155,7 +185,11 @@ def run_regression_conformal(frame: pd.DataFrame, target: str, output_dir: Path)
     scored.to_csv(output_dir / "scored_regression_test.csv", index=False)
 
     plot_conformal_regression_intervals(
-        test[target].to_numpy(), test_pred, lower, upper, figures_dir / "conformal_regression_intervals.png"
+        test[target].to_numpy(),
+        test_pred,
+        lower,
+        upper,
+        figures_dir / "conformal_regression_intervals.png",
     )
     return summary
 
@@ -173,8 +207,12 @@ def run_workflow(
     classification = pd.read_csv(classification_path)
     regression = pd.read_csv(regression_path)
 
-    class_outputs = run_classification_calibration(classification, target=target, output_dir=output_dir)
-    regression_summary = run_regression_conformal(regression, target=regression_target, output_dir=output_dir)
+    class_outputs = run_classification_calibration(
+        classification, target=target, output_dir=output_dir
+    )
+    regression_summary = run_regression_conformal(
+        regression, target=regression_target, output_dir=output_dir
+    )
 
     write_report(
         output_dir / "calibration_report.md",

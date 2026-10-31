@@ -6,18 +6,41 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      MPLBACKEND: Agg
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - name: Install Poetry
+        run: pipx install poetry==2.2.1
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: abatilo/actions-poetry@v3
-      - run: poetry install --with dev
-      - run: poetry run ruff check .
-      - run: poetry run pytest -q
+          cache: poetry
+      - name: Install locked dependencies
+        run: poetry install --with dev
+      - name: Validate lockfile
+        run: poetry check --lock
+      - name: Lint
+        run: poetry run ruff check .
+      - name: Check formatting
+        run: poetry run ruff format --check .
+      - name: Type check
+        run: poetry run mypy src
+      - name: Test metrics and offline CLI
+        run: poetry run pytest -q
+      - name: Build distributions
+        run: poetry build

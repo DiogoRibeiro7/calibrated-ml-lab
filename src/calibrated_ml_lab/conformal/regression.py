@@ -7,7 +7,9 @@ import math
 import numpy as np
 
 
-def conformal_residual_quantile(y_calibration: np.ndarray, y_pred_calibration: np.ndarray, alpha: float = 0.1) -> float:
+def conformal_residual_quantile(
+    y_calibration: np.ndarray, y_pred_calibration: np.ndarray, alpha: float = 0.1
+) -> float:
     """Compute split-conformal absolute-residual quantile."""
 
     if not 0 < alpha < 1:
@@ -31,7 +33,9 @@ def conformal_intervals(y_pred: np.ndarray, qhat: float) -> tuple[np.ndarray, np
     return pred - qhat, pred + qhat
 
 
-def regression_interval_metrics(y_true: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> dict[str, float]:
+def regression_interval_metrics(
+    y_true: np.ndarray, lower: np.ndarray, upper: np.ndarray
+) -> dict[str, float]:
     """Compute coverage and width diagnostics for prediction intervals."""
 
     y = np.asarray(y_true, dtype=float)

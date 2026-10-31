@@ -35,11 +35,14 @@ def write_report(
 
 ## Executive summary
 
-The workflow compared uncalibrated model probabilities with Platt scaling, isotonic regression, and temperature scaling. Calibration was evaluated separately from discrimination.
+The workflow compared uncalibrated model probabilities with Platt scaling,
+isotonic regression, and temperature scaling. Calibration was evaluated separately
+from discrimination.
 
 - Best ECE: **{best_ece['model']}** with ECE **{best_ece['ece']:.4f}**.
 - Best log loss: **{best_log_loss['model']}** with log loss **{best_log_loss['log_loss']:.4f}**.
-- Lowest expected-cost threshold for the selected calibrated model: **{best_threshold['threshold']:.2f}**.
+- Lowest expected-cost threshold for the selected calibrated model:
+  **{best_threshold['threshold']:.2f}**.
 
 ## Calibration metrics
 
@@ -66,6 +69,9 @@ The workflow compared uncalibrated model probabilities with Platt scaling, isoto
 
 ## Interpretation notes
 
-Calibration answers whether predicted probabilities match observed frequencies. It does not prove causal validity, fairness, clinical safety, or robustness under distribution shift. Conformal coverage is empirical in this workflow and relies on the calibration/test split being representative of the deployment setting.
+Calibration answers whether predicted probabilities match observed frequencies.
+It does not prove causal validity, fairness, clinical safety, or robustness under
+distribution shift. Conformal coverage is empirical in this workflow and relies
+on the calibration/test split being representative of the deployment setting.
 """
     output_path.write_text(text.strip() + "\n", encoding="utf-8")

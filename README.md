@@ -101,3 +101,33 @@ reports/sample_run/
 ## Responsible use
 
 Calibration improves the interpretation of model probabilities, but it does not remove data bias, label noise, confounding, or poor problem framing. A calibrated model can still be wrong, unfair, or unsafe. Use calibration as one part of model risk management, not as a guarantee of correctness.
+
+The current classification demo selects its calibration method using test-set ECE
+and reuses calibrator-fitting rows to compute conformal scores. Those stages need
+independent data before the selected method's results can serve as an untouched
+test evaluation. Separating these stages is the next correctness milestone.
+
+## Development checks
+
+Use Python 3.11 or 3.12 and Poetry 2.2.1. Commit dependency changes together
+with `poetry.lock` so local runs and CI install the same resolved dependencies.
+
+Python 3.10 is no longer supported: patched Pillow 13, used by Matplotlib,
+requires Python 3.11 or newer. Select a supported interpreter with
+`poetry env use 3.11` or `poetry env use 3.12` before reinstalling dependencies.
+The package explicitly requires Pillow 13 to avoid selecting affected 12.x versions.
+
+```bash
+poetry install --with dev
+poetry check --lock
+poetry run ruff check .
+poetry run ruff format --check .
+poetry run mypy src
+poetry run pytest -q
+poetry build
+```
+
+CI runs these checks on each supported Python version. The tests exercise the
+installed CLI from a temporary directory, generate synthetic data, and verify
+that the full offline workflow produces its Markdown report, CSV tables, and PNG
+figures. Markdown tables require the declared `tabulate` runtime dependency.

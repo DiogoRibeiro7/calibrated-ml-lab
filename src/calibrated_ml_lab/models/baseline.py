@@ -34,7 +34,9 @@ def infer_feature_spec(frame: pd.DataFrame, target: str) -> FeatureSpec:
 def build_classification_pipeline(spec: FeatureSpec) -> Pipeline:
     """Build a probabilistic classifier pipeline."""
 
-    numeric_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())])
+    numeric_pipeline = Pipeline(
+        [("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]
+    )
     categorical_pipeline = Pipeline(
         [
             ("imputer", SimpleImputer(strategy="most_frequent")),
@@ -68,7 +70,9 @@ def build_classification_pipeline(spec: FeatureSpec) -> Pipeline:
 def build_regression_pipeline(feature_columns: list[str]) -> Pipeline:
     """Build a regression pipeline for conformal intervals."""
 
-    numeric_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())])
+    numeric_pipeline = Pipeline(
+        [("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]
+    )
     preprocessor = ColumnTransformer([("num", numeric_pipeline, feature_columns)])
     return Pipeline(
         [

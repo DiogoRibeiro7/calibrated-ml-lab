@@ -1,0 +1,6 @@
+split,rows,seed
+train,600,42
+calibrator_fit,120,42
+selection,120,42
+conformal,120,42
+test,240,42

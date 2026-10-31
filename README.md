@@ -84,6 +84,8 @@ reports/sample_run/
 ├── calibration_report.md
 ├── tables/
 │   ├── calibration_metrics.csv
+│   ├── selection_metrics.csv
+│   ├── classification_splits.csv
 │   ├── calibration_bins_uncalibrated.csv
 │   ├── calibration_bins_platt.csv
 │   ├── calibration_bins_isotonic.csv
@@ -102,10 +104,15 @@ reports/sample_run/
 
 Calibration improves the interpretation of model probabilities, but it does not remove data bias, label noise, confounding, or poor problem framing. A calibrated model can still be wrong, unfair, or unsafe. Use calibration as one part of model risk management, not as a guarantee of correctness.
 
-The current classification demo selects its calibration method using test-set ECE
-and reuses calibrator-fitting rows to compute conformal scores. Those stages need
-independent data before the selected method's results can serve as an untouched
-test evaluation. Separating these stages is the next correctness milestone.
+The classification workflow uses five disjoint splits: roughly 50% for model
+training, 10% for calibrator fitting, 10% for method selection, 10% for conformal
+calibration, and 20% for final testing. Validation ECE selects the method; final
+test metrics never select or refit it. Reports include selection metrics and split
+sizes separately from final test metrics. See [methodology](docs/methodology.md)
+for splitting assumptions and small-sample requirements.
+
+Threshold curves describe the final test set and must not be used to claim
+validated deployment performance for a threshold chosen from those curves.
 
 ## Development checks
 

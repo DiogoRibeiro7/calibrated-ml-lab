@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -34,86 +35,133 @@ from calibrated_ml_lab.visualization.plots import (
 )
 
 
-def _split_three_way(
+def _split_classification_data(
     frame: pd.DataFrame, target: str, seed: int = 42
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Split data into train, calibration, and test sets."""
+) -> dict[str, pd.DataFrame]:
+    """Allocate roughly 50/10/10/10/20% to five disjoint classification stages."""
 
-    train, temp = train_test_split(frame, test_size=0.4, random_state=seed, stratify=frame[target])
-    calibration, test = train_test_split(
-        temp, test_size=0.5, random_state=seed, stratify=temp[target]
-    )
-    return (
-        train.reset_index(drop=True),
-        calibration.reset_index(drop=True),
-        test.reset_index(drop=True),
+    if target not in frame:
+        raise ValueError(f"target column '{target}' not found")
+    if not frame[target].isin([0, 1]).all() or frame[target].nunique() != 2:
+        raise ValueError("classification target must contain both binary labels 0 and 1")
+
+    try:
+        # Reserve evaluation rows without consulting their labels. Only development
+        # data is stratified; conformal calibration and test remain random holdouts.
+        development, held_out = train_test_split(frame, test_size=0.3, random_state=seed)
+        conformal, test = train_test_split(held_out, test_size=2 / 3, random_state=seed)
+        train, tuning = train_test_split(
+            development, test_size=2 / 7, random_state=seed, stratify=development[target]
+        )
+        calibrator_fit, selection = train_test_split(
+            tuning, test_size=0.5, random_state=seed, stratify=tuning[target]
+        )
+    except ValueError as error:
+        raise ValueError(
+            "Not enough classification data for five disjoint splits; provide more rows "
+            "of each class for training, calibrator fitting, and method selection."
+        ) from error
+
+    splits = {
+        "train": train,
+        "calibrator_fit": calibrator_fit,
+        "selection": selection,
+        "conformal": conformal,
+        "test": test,
+    }
+    if any(
+        splits[name][target].nunique() != 2 for name in ("train", "calibrator_fit", "selection")
+    ):
+        raise ValueError(
+            "training, calibrator fitting, and method selection each need both classes"
+        )
+    if len(conformal) < 9:
+        raise ValueError("alpha=0.1 needs at least 9 conformal calibration rows; provide more data")
+    return splits
+
+
+def _probability_metrics(
+    labels: np.ndarray, probabilities: dict[str, np.ndarray], n_bins: int
+) -> pd.DataFrame:
+    """Evaluate each candidate without choosing a method."""
+    return pd.DataFrame(
+        [
+            {"model": name, **probabilistic_metrics(labels, values, n_bins=n_bins)}
+            for name, values in probabilities.items()
+        ]
     )
 
 
 def run_classification_calibration(
-    frame: pd.DataFrame, target: str, output_dir: Path, n_bins: int = 10
+    frame: pd.DataFrame, target: str, output_dir: Path, n_bins: int = 10, seed: int = 42
 ) -> dict[str, pd.DataFrame]:
     """Run classification calibration and conformal prediction workflow."""
 
-    train, calibration, test = _split_three_way(frame, target=target)
-    spec = infer_feature_spec(frame, target=target)
+    splits = _split_classification_data(frame, target=target, seed=seed)
+    train, calibrator_fit, selection, conformal, test = (
+        splits[name] for name in ("train", "calibrator_fit", "selection", "conformal", "test")
+    )
+    spec = infer_feature_spec(train, target=target)
     feature_columns = spec.numeric_features + spec.categorical_features
 
     model = build_classification_pipeline(spec)
     model.fit(train[feature_columns], train[target])
 
-    cal_prob = model.predict_proba(calibration[feature_columns])[:, 1]
-    test_prob = model.predict_proba(test[feature_columns])[:, 1]
-
-    platt = PlattScaler().fit(cal_prob, calibration[target].to_numpy())
-    isotonic = IsotonicCalibrator().fit(cal_prob, calibration[target].to_numpy())
-    temperature = TemperatureScaler().fit(cal_prob, calibration[target].to_numpy())
-
-    probability_sets = {
-        "uncalibrated": test_prob,
-        "platt": platt.transform(test_prob),
-        "isotonic": isotonic.transform(test_prob),
-        "temperature": temperature.transform(test_prob),
+    fit_prob = model.predict_proba(calibrator_fit[feature_columns])[:, 1]
+    calibrators: dict[str, PlattScaler | IsotonicCalibrator | TemperatureScaler] = {
+        "platt": PlattScaler(),
+        "isotonic": IsotonicCalibrator(),
+        "temperature": TemperatureScaler(),
     }
+    for calibrator in calibrators.values():
+        calibrator.fit(fit_prob, calibrator_fit[target].to_numpy())
 
-    metrics_rows: list[dict[str, float | str]] = []
+    def candidate_probabilities(data: pd.DataFrame) -> dict[str, np.ndarray]:
+        """Apply the frozen model and calibrators to another split."""
+        raw = model.predict_proba(data[feature_columns])[:, 1]
+        return {"uncalibrated": raw, **{name: c.transform(raw) for name, c in calibrators.items()}}
+
+    selection_metrics = _probability_metrics(
+        selection[target].to_numpy(), candidate_probabilities(selection), n_bins
+    )
+    # A stable sort resolves exact ties in candidate order, favouring uncalibrated.
+    selected_name = str(selection_metrics.sort_values("ece", kind="stable").iloc[0]["model"])
+    selection_metrics["selected"] = selection_metrics["model"] == selected_name
+
+    conformal_prob = candidate_probabilities(conformal)[selected_name]
+    qhat = conformal_classification_threshold(
+        conformal[target].to_numpy(), conformal_prob, alpha=0.1
+    )
+
+    # Freeze selection and qhat before inspecting any final test labels.
+    probability_sets = candidate_probabilities(test)
+    selected_test_prob = probability_sets[selected_name]
+
     y_test = test[target].to_numpy()
     tables_dir = output_dir / "tables"
     figures_dir = output_dir / "figures"
     tables_dir.mkdir(parents=True, exist_ok=True)
     figures_dir.mkdir(parents=True, exist_ok=True)
 
+    split_summary = pd.DataFrame(
+        [{"split": name, "rows": len(data), "seed": seed} for name, data in splits.items()]
+    )
+    split_summary.to_csv(tables_dir / "classification_splits.csv", index=False)
+    selection_metrics.to_csv(tables_dir / "selection_metrics.csv", index=False)
     for name, probabilities in probability_sets.items():
-        row: dict[str, float | str] = {
-            "model": name,
-            **probabilistic_metrics(y_test, probabilities, n_bins=n_bins),
-        }
-        metrics_rows.append(row)
         calibration_bins(y_test, probabilities, n_bins=n_bins).to_csv(
             tables_dir / f"calibration_bins_{name}.csv", index=False
         )
 
-    metrics = pd.DataFrame(metrics_rows)
+    metrics = _probability_metrics(y_test, probability_sets, n_bins)
+    metrics["selected"] = metrics["model"] == selected_name
     metrics.to_csv(tables_dir / "calibration_metrics.csv", index=False)
 
-    # Use the best-ECE probabilities for downstream conformal and threshold analysis.
-    best_model_name = str(metrics.sort_values("ece").iloc[0]["model"])
-    best_test_prob = probability_sets[best_model_name]
-    best_cal_prob = {
-        "uncalibrated": cal_prob,
-        "platt": platt.transform(cal_prob),
-        "isotonic": isotonic.transform(cal_prob),
-        "temperature": temperature.transform(cal_prob),
-    }[best_model_name]
-
-    qhat = conformal_classification_threshold(
-        calibration[target].to_numpy(), best_cal_prob, alpha=0.1
-    )
-    prediction_sets = conformal_prediction_sets(best_test_prob, threshold=qhat)
+    prediction_sets = conformal_prediction_sets(selected_test_prob, threshold=qhat)
     conformal_summary = pd.DataFrame(
         [
             {
-                "method": f"split_conformal_{best_model_name}",
+                "method": f"split_conformal_{selected_name}",
                 "alpha": 0.1,
                 "qhat": qhat,
                 **classification_set_coverage(y_test, prediction_sets),
@@ -122,7 +170,7 @@ def run_classification_calibration(
     )
     conformal_summary.to_csv(tables_dir / "conformal_classification_summary.csv", index=False)
 
-    thresholds = threshold_metrics(y_test, best_test_prob)
+    thresholds = threshold_metrics(y_test, selected_test_prob)
     thresholds.to_csv(tables_dir / "threshold_metrics.csv", index=False)
 
     scored = test.copy()
@@ -140,6 +188,8 @@ def run_classification_calibration(
     plot_threshold_tradeoff(thresholds, figures_dir / "threshold_tradeoff.png")
 
     return {
+        "selection_metrics": selection_metrics,
+        "classification_splits": split_summary,
         "metrics": metrics,
         "conformal_classification": conformal_summary,
         "threshold_metrics": thresholds,
@@ -220,4 +270,6 @@ def run_workflow(
         conformal_classification=class_outputs["conformal_classification"],
         conformal_regression=regression_summary,
         threshold_metrics=class_outputs["threshold_metrics"],
+        selection_metrics=class_outputs["selection_metrics"],
+        classification_splits=class_outputs["classification_splits"],
     )

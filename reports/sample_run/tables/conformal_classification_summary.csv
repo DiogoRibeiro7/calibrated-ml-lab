@@ -1,2 +1,2 @@
 method,alpha,qhat,coverage,average_set_size,singleton_rate,empty_set_rate
-split_conformal_platt,0.1,0.7234915331494549,0.9166666666666666,1.2375,0.7625,0.0
+split_conformal_platt,0.1,0.836200714109812,0.9708333333333333,1.4833333333333334,0.5166666666666667,0.0

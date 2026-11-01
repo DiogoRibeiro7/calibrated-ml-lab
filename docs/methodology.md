@@ -47,7 +47,10 @@ Uncertainty estimation asks how much confidence we should place in predictions, 
 
 All calibrators validate aligned, nonempty one-dimensional fitting arrays before
 training: labels must be exactly 0 or 1 and probabilities must be finite and in
-[0, 1]. Transform inputs use the same probability validation. Invalid data raises
+[0, 1]. Numeric-looking strings and other nonnumeric array elements are rejected
+before conversion; real numeric and boolean arrays remain supported, including
+object arrays containing numeric values. Transform inputs use the same probability
+validation. Invalid data raises
 `ValueError`. A failed fit keeps any previous successful fit usable; a new instance
 remains unfitted and raises `RuntimeError` if asked to transform probabilities.
 

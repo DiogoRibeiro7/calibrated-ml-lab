@@ -57,6 +57,9 @@ def test_temperature_scaler_fits_positive_temperature():
         ([0.2, np.nan], [0, 1]),
         ([0.2, np.inf], [0, 1]),
         ([0.2 + 1j, 0.8], [0, 1]),
+        ([0.2, 0.8], ["0", "1"]),
+        (["0.2", "0.8"], [0, 1]),
+        ([0.2, 0.8], np.array([0, "1"], dtype=object)),
     ],
 )
 def test_fit_rejects_invalid_inputs(
@@ -69,7 +72,19 @@ def test_fit_rejects_invalid_inputs(
 
 
 @pytest.mark.parametrize(
-    "probabilities", [[], 0.5, [[0.5]], [-0.1], [1.1], [np.nan], [np.inf], [0.5 + 1j]]
+    "probabilities",
+    [
+        [],
+        0.5,
+        [[0.5]],
+        [-0.1],
+        [1.1],
+        [np.nan],
+        [np.inf],
+        [0.5 + 1j],
+        ["0.5"],
+        np.array(["0.5"], dtype=object),
+    ],
 )
 def test_transform_rejects_invalid_probabilities(
     calibrator: Calibrator, probabilities: object

@@ -11,6 +11,8 @@
   calibration samples, and validate conformal inputs and coverage summaries.
 - [x] Preserve probability endpoints and score rankings in binary metrics, and
   validate metric inputs, decision thresholds, and error costs consistently.
+- [x] Validate calibrator fitting and transform inputs, preserve successful fits
+  after failed refits, and avoid clipping isotonic training scores.
 
 ## v0.1 — Local calibration and uncertainty workbench
 

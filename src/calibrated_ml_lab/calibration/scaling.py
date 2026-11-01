@@ -9,17 +9,16 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 
+from calibrated_ml_lab._validation import binary_inputs
+from calibrated_ml_lab._validation import probabilities as validate_probabilities
+
 EPS = 1e-12
 
 
 def _clip_probabilities(probabilities: np.ndarray) -> np.ndarray:
-    """Clip probabilities away from numerical boundaries."""
+    """Validate probabilities and clip them for finite logit calculations."""
 
-    p = np.asarray(probabilities, dtype=float)
-    if p.ndim != 1:
-        raise ValueError("probabilities must be one-dimensional")
-    if not np.all((p >= 0) & (p <= 1)):
-        raise ValueError("probabilities must be in [0, 1]")
+    p = validate_probabilities(probabilities)
     return np.clip(p, EPS, 1 - EPS)
 
 
@@ -30,15 +29,15 @@ class PlattScaler:
         self.model: LogisticRegression | None = None
 
     def fit(self, probabilities: np.ndarray, y_true: np.ndarray) -> PlattScaler:
-        """Fit the calibrator."""
+        """Fit on binary data with both classes, preserving the previous fit on failure."""
 
-        p = _clip_probabilities(probabilities)
-        y = np.asarray(y_true, dtype=int)
+        y, p = binary_inputs(y_true, probabilities)
         if len(np.unique(y)) < 2:
             raise ValueError("Platt scaling requires both classes")
-        logits = logit(p).reshape(-1, 1)
-        self.model = LogisticRegression(solver="lbfgs")
-        self.model.fit(logits, y)
+        logits = logit(_clip_probabilities(p)).reshape(-1, 1)
+        fitted = LogisticRegression(solver="lbfgs")
+        fitted.fit(logits, y)
+        self.model = fitted
         return self
 
     def transform(self, probabilities: np.ndarray) -> np.ndarray:
@@ -57,12 +56,12 @@ class IsotonicCalibrator:
         self.model: IsotonicRegression | None = None
 
     def fit(self, probabilities: np.ndarray, y_true: np.ndarray) -> IsotonicCalibrator:
-        """Fit isotonic regression on probabilities."""
+        """Fit on original probabilities, preserving the previous fit on failure."""
 
-        p = _clip_probabilities(probabilities)
-        y = np.asarray(y_true, dtype=int)
-        self.model = IsotonicRegression(out_of_bounds="clip")
-        self.model.fit(p, y)
+        y, p = binary_inputs(y_true, probabilities)
+        fitted = IsotonicRegression(out_of_bounds="clip")
+        fitted.fit(p, y)
+        self.model = fitted
         return self
 
     def transform(self, probabilities: np.ndarray) -> np.ndarray:
@@ -70,7 +69,7 @@ class IsotonicCalibrator:
 
         if self.model is None:
             raise RuntimeError("IsotonicCalibrator must be fitted before transform")
-        p = _clip_probabilities(probabilities)
+        p = validate_probabilities(probabilities)
         return np.asarray(self.model.predict(p), dtype=float)
 
 
@@ -85,11 +84,10 @@ class TemperatureScaler:
         self.temperature_: float | None = None
 
     def fit(self, probabilities: np.ndarray, y_true: np.ndarray) -> TemperatureScaler:
-        """Fit the temperature parameter."""
+        """Fit on binary data, preserving the previous temperature on failure."""
 
-        p = _clip_probabilities(probabilities)
-        y = np.asarray(y_true, dtype=int)
-        logits = logit(p)
+        y, p = binary_inputs(y_true, probabilities)
+        logits = logit(_clip_probabilities(p))
 
         def objective(log_temperature: float) -> float:
             temperature = float(np.exp(log_temperature))

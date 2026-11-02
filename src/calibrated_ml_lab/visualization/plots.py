@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -9,6 +10,54 @@ import numpy as np
 import pandas as pd
 
 from calibrated_ml_lab.calibration.metrics import calibration_bins
+from calibrated_ml_lab.uncertainty.intervals import interval_calibration_table
+
+
+def plot_interval_calibration(
+    y_true: np.ndarray,
+    interval_methods: Mapping[str, Mapping[float, tuple[np.ndarray, np.ndarray]]],
+    output_path: Path,
+) -> None:
+    """Plot empirical versus nominal coverage for supplied prediction intervals.
+
+    Each method maps nominal coverage levels to bounds for the same evaluation rows.
+    Points are sorted by level without altering observed rates; connecting lines
+    are visual guides. Empty and unbounded sets remain in coverage denominators.
+    Validate every method before creating output, and close the figure on failure.
+    """
+    if not isinstance(interval_methods, Mapping) or not interval_methods:
+        raise ValueError("interval_methods must be a nonempty mapping of method names")
+    tables = {}
+    for name, intervals in interval_methods.items():
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("method names must be nonblank strings")
+        tables[name] = interval_calibration_table(y_true, intervals)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(7, 6))
+    try:
+        ax.plot([0, 1], [0, 1], linestyle="--", color="0.45", label="Nominal = empirical")
+        for table in tables.values():
+            # Explicit legend labels also preserve names beginning with an underscore.
+            ax.plot(table["nominal_coverage"], table["coverage"], marker="o")
+        ax.set_xlabel("Nominal coverage")
+        ax.set_ylabel("Empirical coverage")
+        ax.set_title("Prediction-interval calibration")
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.grid(alpha=0.2)
+        ax.legend(ax.lines, ["Nominal = empirical", *tables])
+        count = next(iter(tables.values()))["count"].iloc[0]
+        fig.text(
+            0.5,
+            0.02,
+            f"Evaluation rows: {count}. Empty sets count as uncovered.",
+            ha="center",
+            fontsize=9,
+        )
+        fig.tight_layout(rect=(0, 0.04, 1, 1))
+        fig.savefig(output_path, dpi=160)
+    finally:
+        plt.close(fig)
 
 
 def plot_reliability_diagram(

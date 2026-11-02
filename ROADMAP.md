@@ -58,7 +58,8 @@
 - [ ] Add bootstrap prediction intervals.
 - [x] Add conformalized quantile regression with exact signed score thresholds,
   empty-set summaries, and separate model-training, calibration, and test rows.
-- [ ] Add interval calibration plots.
+- [x] Add empirical interval calibration tables and plots across nominal coverage
+  levels, preserving empty and unbounded sets with an offline PNG/CSV example.
 - [ ] Add conditional coverage diagnostics by feature bins.
 
 ## v0.4 — Model-agnostic uncertainty

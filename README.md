@@ -16,6 +16,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Isotonic regression calibration.
 - Temperature scaling.
 - Multiclass temperature scaling from logits (Python API).
+- Multiclass confidence, top-label, and class-wise calibration diagnostics.
 - Split conformal classification.
 - Split conformal regression intervals.
 - Coverage and interval-width diagnostics.
@@ -95,7 +96,7 @@ Before copying, the workflow rejects existing symbolic links or Windows reparse
 points at the output directory, generated-file destinations, or their parents
 within the output directory. Keep the destination unchanged while a run publishes.
 
-## Multiclass temperature scaling
+## Multiclass calibration
 
 Use `MulticlassTemperatureScaler` from
 `calibrated_ml_lab.calibration.multiclass` to fit one temperature on a matrix of
@@ -111,11 +112,25 @@ poetry run python examples/run_multiclass.py
 
 The example uses separate model-training, calibration, and test sets. It deliberately
 amplifies logits to simulate overconfidence, then reports temperature, test log loss,
-and test accuracy before and after calibration. This illustrates the method;
+and test accuracy before and after calibration. It also reports confidence ECE,
+top-label ECE, and per-class ECE/MCE on the test set. In this example, log loss
+improves while the binned calibration errors increase; the output keeps both results
+visible. This illustrates the method;
 calibration does not guarantee better performance on unseen data.
 See [the multiclass API contract](docs/methodology.md#multiclass-temperature-scaling)
 for label mapping, numerical limits, and fitting assumptions. The `calibrated-lab run`
 reporting workflow currently handles binary classification.
+
+The functions in `calibrated_ml_lab.calibration.multiclass_metrics` accept class-index
+labels and a matrix of class probabilities:
+
+- `confidence_calibration_bins`: pooled confidence versus prediction accuracy.
+- `top_label_calibration_bins`: confidence versus accuracy within each predicted class.
+- `classwise_calibration_errors`: one-versus-rest ECE/MCE for every class, with label counts.
+- `multiclass_calibration_metrics`: confidence ECE, top-label ECE, and mean class-wise ECE.
+
+See [the diagnostic definitions](docs/methodology.md#multiclass-calibration-diagnostics)
+for bin weights, missing classes, and probability ties.
 
 ## Main outputs
 

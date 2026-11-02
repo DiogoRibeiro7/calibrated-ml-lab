@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from shutil import copyfile
+from stat import FILE_ATTRIBUTE_REPARSE_POINT, S_ISLNK
 from tempfile import TemporaryDirectory
 
 import numpy as np
@@ -287,8 +288,24 @@ def run_workflow(
             selection_metrics=class_outputs["selection_metrics"],
             classification_splits=class_outputs["classification_splits"],
         )
-        for artifact in staging_dir.rglob("*"):
-            if artifact.is_file():
-                destination = output_dir / artifact.relative_to(staging_dir)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                copyfile(artifact, destination)
+        artifacts = [path for path in staging_dir.rglob("*") if path.is_file()]
+        # Validate every destination before publishing any file. On Windows, junctions
+        # and other reparse points can redirect writes just as symbolic links do.
+        for artifact in artifacts:
+            relative_path = artifact.relative_to(staging_dir)
+            for relative in (relative_path, *relative_path.parents):
+                destination = output_dir / relative
+                try:
+                    metadata = destination.lstat()
+                except FileNotFoundError:
+                    continue
+                if S_ISLNK(metadata.st_mode) or (
+                    getattr(metadata, "st_file_attributes", 0) & FILE_ATTRIBUTE_REPARSE_POINT
+                ):
+                    raise ValueError(
+                        f"output path must not be a link or reparse point: {destination}"
+                    )
+        for artifact in artifacts:
+            destination = output_dir / artifact.relative_to(staging_dir)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            copyfile(artifact, destination)

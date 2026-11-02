@@ -90,6 +90,9 @@ A successful run overwrites only files produced by that run; other files,
 including artifacts from older versions, are retained. Existing file and directory
 permissions are preserved. The final copy is not atomic: a filesystem failure
 during copying can leave partial output.
+Before copying, the workflow rejects existing symbolic links or Windows reparse
+points at the output directory, generated-file destinations, or their parents
+within the output directory. Keep the destination unchanged while a run publishes.
 
 ## Main outputs
 

@@ -136,3 +136,61 @@ def test_workflow_rejects_file_as_output_directory(tmp_path: Path) -> None:
     with pytest.raises(NotADirectoryError, match="output directory"):
         pipeline.run_workflow(tmp_path / "missing.csv", tmp_path / "missing.csv", output)
     assert output.read_text(encoding="utf-8") == "keep me"
+
+
+@pytest.mark.parametrize("linked_path", [".", "tables", "tables/metrics.csv"])
+def test_workflow_rejects_destination_links_before_publishing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    linked_path: str,
+) -> None:
+    csv = tmp_path / "data.csv"
+    csv.write_text("feature,label,y\n1,0,2\n", encoding="utf-8")
+    output = tmp_path / "output"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "metrics.csv").write_text("keep metrics", encoding="utf-8")
+    link = output / linked_path
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link_is_directory = linked_path != "tables/metrics.csv"
+    try:
+        link.symlink_to(
+            outside if link_is_directory else outside / "metrics.csv",
+            target_is_directory=link_is_directory,
+        )
+    except OSError as error:
+        if getattr(error, "winerror", None) == 1314:
+            pytest.skip("Windows requires symlink privileges")
+        raise
+    (output / "calibration_report.md").write_text("keep report", encoding="utf-8")
+    temporary_paths = []
+
+    def classification(frame, target, output_dir):
+        temporary_paths.append(output_dir)
+        (output_dir / "tables").mkdir()
+        (output_dir / "tables/metrics.csv").write_text("new metrics", encoding="utf-8")
+        return dict.fromkeys(
+            [
+                "metrics",
+                "conformal_classification",
+                "threshold_metrics",
+                "selection_metrics",
+                "classification_splits",
+            ],
+            pd.DataFrame(),
+        )
+
+    def report(path, **kwargs):
+        path.write_text("new report", encoding="utf-8")
+
+    monkeypatch.setattr(pipeline, "run_classification_calibration", classification)
+    monkeypatch.setattr(
+        pipeline, "run_regression_conformal", lambda *args, **kwargs: pd.DataFrame()
+    )
+    monkeypatch.setattr(pipeline, "write_report", report)
+    with pytest.raises(ValueError, match="output path must not be a link"):
+        pipeline.run_workflow(csv, csv, output)
+    assert link.is_symlink()
+    assert (outside / "metrics.csv").read_text(encoding="utf-8") == "keep metrics"
+    assert (output / "calibration_report.md").read_text(encoding="utf-8") == "keep report"
+    assert all(not path.exists() for path in temporary_paths)

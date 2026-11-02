@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from numbers import Number
+
 import numpy as np
 
 
@@ -9,7 +11,17 @@ def as_vector(values: np.ndarray, name: str, *, allow_infinite: bool = False) ->
     """Require a nonempty real vector, allowing infinite interval bounds explicitly."""
     if np.iscomplexobj(values):
         raise ValueError(f"{name} must be real-valued")
-    array = np.asarray(values, dtype=float)
+    raw = np.asarray(values)
+    if raw.dtype.kind not in "biuf" and (
+        raw.dtype.kind != "O"
+        or not all(
+            isinstance(value, Number | np.bool_)
+            and not isinstance(value, complex | np.complexfloating | np.timedelta64)
+            for value in raw.flat
+        )
+    ):
+        raise ValueError(f"{name} must contain real numeric values")
+    array = np.asarray(raw, dtype=float)
     if array.ndim != 1 or array.size == 0:
         raise ValueError(f"{name} must be a nonempty one-dimensional array")
     if np.isnan(array).any() or (not allow_infinite and not np.isfinite(array).all()):

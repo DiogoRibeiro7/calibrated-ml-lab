@@ -45,6 +45,25 @@ Uncertainty estimation asks how much confidence we should place in predictions, 
 - Isotonic regression: monotonic non-parametric calibration.
 - Temperature scaling: one-parameter logit rescaling to reduce negative log loss.
 
+All calibrators validate aligned, nonempty one-dimensional fitting arrays before
+training: labels must be exactly 0 or 1 and probabilities must be finite and in
+[0, 1]. Numeric-looking strings and other nonnumeric array elements are rejected
+before conversion; real numeric and boolean arrays remain supported, including
+object arrays containing numeric values. Transform inputs use the same probability
+validation. Invalid data raises
+`ValueError`. A failed fit keeps any previous successful fit usable; a new instance
+remains unfitted and raises `RuntimeError` if asked to transform probabilities.
+
+Platt scaling requires both classes. Isotonic and temperature scaling also accept
+single-class fitting data, although such a sample cannot establish calibration for
+the missing class. The full classification workflow still requires both classes
+in its development subsets.
+
+Isotonic regression uses original probabilities, including exact endpoints and
+distinct scores near 0 or 1. For valid probabilities outside the fitted score
+range, its prediction is the nearest fitted boundary value. Platt and temperature
+scaling retain clipping to [1e-12, 1 - 1e-12] for finite logit calculations.
+
 ## Implemented conformal methods
 
 - Split conformal classification using nonconformity score `1 - p_true`.

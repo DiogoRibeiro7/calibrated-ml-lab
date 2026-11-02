@@ -249,6 +249,24 @@ def test_example_runs_offline_from_another_directory(tmp_path: Path) -> None:
     assert 0 <= conformal["coverage"] <= 1 - conformal["empty_set_rate"]
     assert 0 <= conformal["singleton_rate"] <= 1
     assert conformal["singleton_rate"] <= conformal["average_set_size"] <= 3
+    grouped_classes = metrics["test_conformal_by_class"]
+    grouped_slices = metrics["test_conformal_by_slice"]
+    assert [row["class_index"] for row in grouped_classes] == [0, 1, 2]
+    assert [row["slice"] for row in grouped_slices] == [
+        "feature_0_nonpositive",
+        "feature_0_positive",
+    ]
+    for groups in (grouped_classes, grouped_slices):
+        assert sum(row["count"] for row in groups) == metrics["test_rows"]
+        assert sum(row["covered_count"] for row in groups) / metrics["test_rows"] == pytest.approx(
+            conformal["coverage"]
+        )
+        for row in groups:
+            assert 0 < row["count"] <= metrics["test_rows"]
+            assert row["coverage"] == pytest.approx(row["covered_count"] / row["count"])
+        for statistic in conformal:
+            weighted = sum(row["count"] * row[statistic] for row in groups) / metrics["test_rows"]
+            assert weighted == pytest.approx(conformal[statistic])
     assert metrics["calibration_bins"] == 10
     for stage in ("before", "after"):
         diagnostics = metrics[f"test_calibration_{stage}"]

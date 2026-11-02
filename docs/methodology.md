@@ -243,6 +243,68 @@ for every class, feature slice, or individual example. Empirical test coverage m
 fall below the target on a finite sample. Random row splits do not address repeated
 entities, time dependence, or distribution shift; use a suitable sampling design.
 
+## Coverage by class and slice
+
+An overall coverage rate can conceal poor coverage in a smaller group. For example,
+90 covered observations from one class and 10 uncovered observations from another
+give 90% overall coverage while the second class has zero coverage. Grouped empirical
+diagnostics address this visibility problem; they do not change the conformal
+threshold or add conditional coverage guarantees. This distinction follows the
+[evaluation discussion in Angelopoulos and Bates](https://arxiv.org/html/2107.07511v6#S3).
+
+```python
+from calibrated_ml_lab.conformal.multiclass import (
+    multiclass_coverage_by_class,
+    multiclass_coverage_by_slice,
+)
+
+by_class = multiclass_coverage_by_class(test_labels, membership)
+by_slice = multiclass_coverage_by_slice(test_labels, membership, {
+    "feature_0_nonpositive": test_features[:, 0] <= 0,
+    "feature_0_positive": test_features[:, 0] > 0,
+})
+```
+
+Both functions validate all evaluation labels and set memberships before grouping,
+using the same input contract as `multiclass_set_coverage`. Grouping is positional;
+Pandas indices do not align or reorder the inputs. The overall input must remain
+nonempty even if a requested group has no rows.
+
+The resulting tables contain a group identifier and these statistics:
+
+| Column | Meaning |
+| --- | --- |
+| `count` | Number of evaluation rows in the group. |
+| `covered_count` | Number whose prediction set contains the true class. |
+| `coverage` | `covered_count / count`. |
+| `average_set_size` | Mean number of included classes, counting empty sets as size zero. |
+| `singleton_rate` | Fraction of group rows with exactly one included class. |
+| `empty_set_rate` | Fraction of group rows with no included classes. |
+
+Class tables use `class_index` and contain every membership-matrix column in index
+order. Grouping uses the **true class**, not the predicted winner. Absent classes
+remain as rows with zero counts and NaN for all four statistics; their coverage is
+undefined, not zero or one.
+
+Slice tables use `slice` and preserve the mapping's iteration order. Names must be
+nonblank strings, and masks must be one-dimensional booleans or numeric 0/1 vectors
+with exactly one entry per evaluation row. All-false masks retain zero counts and
+NaN statistics. An empty mapping returns an empty table with the usual columns.
+The example serializes undefined table statistics as JSON `null`.
+
+Slices can overlap or leave some rows unassigned. Do not pool their counts or average
+their coverage as though they partitioned the data. For an exhaustive, disjoint
+partition, weighting each nonempty group's statistics by `count` recovers the overall
+statistics. Exclude zero-count groups from this calculation because their statistics
+are undefined. The class table has this partition property; arbitrary slice tables may not.
+
+Choose meaningful slices before inspecting test outcomes and retain their sample
+counts. Small groups have noisy empirical coverage, and selecting slices after
+seeing their errors makes the results exploratory. The example uses fixed feature
+cutoffs only after fitting and prediction; no slice refits the temperature or the
+conformal threshold. Per-class and per-slice rates describe the observed test rows,
+not a promise about future coverage or fairness.
+
 ## Classification evaluation protocol
 
 Five disjoint subsets have separate responsibilities (fractions are approximate

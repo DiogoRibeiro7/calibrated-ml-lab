@@ -20,6 +20,8 @@ from calibrated_ml_lab.calibration.multiclass_metrics import (
 )
 from calibrated_ml_lab.conformal.multiclass import (
     multiclass_conformal_threshold,
+    multiclass_coverage_by_class,
+    multiclass_coverage_by_slice,
     multiclass_prediction_sets,
     multiclass_set_coverage,
 )
@@ -86,6 +88,16 @@ def main() -> None:
     raw = softmax(test_logits, axis=1)
     calibrated = scaler.transform(test_logits)
     prediction_sets = multiclass_prediction_sets(calibrated, threshold)
+    # Fixed feature slices are evaluated after prediction; they do not tune the threshold.
+    coverage_classes = multiclass_coverage_by_class(test_y, prediction_sets)
+    coverage_slices = multiclass_coverage_by_slice(
+        test_y,
+        prediction_sets,
+        {
+            "feature_0_nonpositive": test_x[:, 0] <= 0,
+            "feature_0_positive": test_x[:, 0] > 0,
+        },
+    )
     print(
         json.dumps(
             {
@@ -98,6 +110,13 @@ def main() -> None:
                 "conformal_alpha": alpha,
                 "conformal_threshold": threshold,
                 "test_conformal": multiclass_set_coverage(test_y, prediction_sets),
+                # Pandas serializes undefined empty-group statistics as JSON null.
+                "test_conformal_by_class": json.loads(
+                    coverage_classes.to_json(orient="records", double_precision=15)
+                ),
+                "test_conformal_by_slice": json.loads(
+                    coverage_slices.to_json(orient="records", double_precision=15)
+                ),
                 "test_log_loss_before": log_loss(test_y, raw, labels=np.arange(3)),
                 "test_log_loss_after": log_loss(test_y, calibrated, labels=np.arange(3)),
                 "test_accuracy_before": accuracy_score(test_y, raw.argmax(axis=1)),

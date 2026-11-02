@@ -45,7 +45,8 @@
 - [x] Add one-versus-rest class-wise ECE/MCE and macro class-wise ECE.
 - [x] Add multi-class split-conformal prediction sets and empirical coverage summaries,
   with separate temperature-fitting, conformal-calibration, and test rows.
-- [ ] Add coverage by class and slice.
+- [x] Add empirical coverage by true class and named slices, including counts,
+  overlapping masks, and explicit undefined statistics for empty groups.
 
 ## v0.3 — Regression uncertainty
 

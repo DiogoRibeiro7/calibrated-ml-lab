@@ -86,8 +86,10 @@ message. See [the data model](docs/data_model.md) for target requirements.
 The full workflow generates its report, tables, and plots in temporary storage.
 It copies them to `--output-dir` only after every computation succeeds, preserving
 an existing report if data validation, model fitting, or report generation fails.
-A successful run replaces generated files and keeps unrelated files. The final
-copy is not atomic: a filesystem failure during copying can leave partial output.
+A successful run overwrites only files produced by that run; other files,
+including artifacts from older versions, are retained. Existing file and directory
+permissions are preserved. The final copy is not atomic: a filesystem failure
+during copying can leave partial output.
 
 ## Main outputs
 

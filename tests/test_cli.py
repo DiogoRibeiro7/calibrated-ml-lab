@@ -99,17 +99,20 @@ def test_cli_generates_data_and_complete_report(tmp_path: Path) -> None:
         assert (output / "figures" / name).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
-def test_installed_cli_rejects_missing_input_without_traceback(tmp_path: Path) -> None:
-    result = run_cli(
-        tmp_path,
+@pytest.mark.parametrize("option", ["--input", "--regression-input"])
+def test_installed_cli_rejects_missing_input_without_traceback(tmp_path: Path, option: str) -> None:
+    (tmp_path / "data.csv").write_text("feature,label,y\n1,0,2\n", encoding="utf-8")
+    arguments = [
         "run",
         "--input",
-        "missing.csv",
+        "data.csv",
         "--regression-input",
-        "missing.csv",
+        "data.csv",
         "--output-dir",
         "output",
-    )
+    ]
+    arguments[arguments.index(option) + 1] = "missing.csv"
+    result = run_cli(tmp_path, *arguments)
     assert result.returncode == 2
     assert "does not exist" in result.stderr
     assert "Traceback" not in result.stderr

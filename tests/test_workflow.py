@@ -52,7 +52,12 @@ def test_workflow_only_publishes_after_all_stages_succeed(
     reference_directory.mkdir()
     if existing_output:
         (output / "tables").mkdir(parents=True)
-        for name in ["calibration_report.md", "tables/metrics.csv", "notes.txt"]:
+        for name in [
+            "calibration_report.md",
+            "tables/metrics.csv",
+            "notes.txt",
+            "tables/previous_version.csv",
+        ]:
             (output / name).write_text("old content", encoding="utf-8")
         if os.name == "posix":
             output.chmod(0o750)
@@ -115,6 +120,9 @@ def test_workflow_only_publishes_after_all_stages_succeed(
         assert (output / "scored_regression_test.csv").read_text(encoding="utf-8") == "new scores"
         if existing_output:
             assert (output / "notes.txt").read_text(encoding="utf-8") == "old content"
+            assert (output / "tables/previous_version.csv").read_text(
+                encoding="utf-8"
+            ) == "old content"
         else:
             assert output.stat().st_mode == reference_directory.stat().st_mode
     assert all(path.stat().st_mode == mode for path, mode in existing_modes.items())

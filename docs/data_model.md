@@ -9,8 +9,9 @@ Required columns:
 - optional categorical slice columns.
 
 Use `--target` to choose another target column. Provide enough rows of each class
-for the separate fitting and evaluation stages; see
-[the splitting requirements](methodology.md). Columns prefixed with `true_` are
+for model training, calibrator fitting, and method selection; see
+[the splitting requirements](methodology.md). Conformal and final-test holdouts
+may contain a single class. Columns prefixed with `true_` are
 excluded from classification predictors.
 
 The sample generator creates:

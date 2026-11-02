@@ -456,6 +456,77 @@ In this seeded run overall test coverage changes from 90.3% to 91.2%, with a sma
 positive correction. These results illustrate the procedure; empirical coverage
 can differ in either direction on other data.
 
+## Interval calibration across nominal levels
+
+An interval calibration curve compares each requested coverage level with the
+fraction of evaluation responses actually inside its prediction sets. The diagonal
+marks equal nominal and empirical coverage. Points below it indicate empirical
+undercoverage; points above it indicate empirical overcoverage. Compare widths
+alongside coverage: arbitrarily wide intervals can cover every response.
+
+`interval_calibration_table` in `calibrated_ml_lab.uncertainty.intervals` takes
+evaluation responses and a mapping from nominal coverage to `(lower, upper)` arrays:
+
+```python
+from pathlib import Path
+from calibrated_ml_lab.uncertainty.intervals import interval_calibration_table
+from calibrated_ml_lab.visualization.plots import plot_interval_calibration
+
+intervals = {0.8: bounds_80, 0.9: bounds_90, 0.95: bounds_95}
+table = interval_calibration_table(test_y, intervals)
+plot_interval_calibration(test_y, {"My method": intervals}, Path("calibration.png"))
+```
+
+The mapping must be nonempty. Its keys must be real numeric scalars strictly
+between zero and one, remaining distinct after conversion to float. Each value
+must be a tuple or list containing two one-dimensional bound arrays, with one
+entry per evaluation response. Responses must be nonempty and finite; bounds may
+include infinity but must not include NaN. Numeric strings, complex values, and
+mismatched shapes are rejected. Alignment is positional, including Pandas inputs.
+Rows are sorted by nominal level; neither input arrays nor mapping order are changed.
+
+Each table row reports:
+
+| Column | Meaning |
+| --- | --- |
+| `nominal_coverage` | Requested level associated with the supplied interval arrays. |
+| `count` | Number of evaluation responses, including those with empty prediction sets. |
+| `covered_count` | Number contained in their prediction sets, including finite boundary equality. |
+| `coverage` | `covered_count / count`. |
+| `coverage_gap` | Empirical minus nominal coverage; negative values indicate undercoverage. |
+| `average_width`, `median_width`, `min_width`, `max_width` | Width summaries across every evaluation row. |
+| `empty_set_rate` | Fraction with a corrected lower bound exceeding its upper bound. |
+
+The set convention matches CQR: reversed bounds denote empty sets and contribute
+zero width and zero coverage. Equal finite endpoints are singletons; unbounded
+sets remain included, with potentially infinite widths. Singleton infinities are
+invalid. Order raw crossed quantile estimates before computing calibration scores,
+then retain any reversed bounds produced by a signed conformal correction. The
+table cannot infer whether reversed input bounds were intentional.
+
+`plot_interval_calibration` takes a nonempty mapping from nonblank method names
+to their interval mappings. Methods may use different sets of nominal levels,
+but all must use the same evaluation responses. The plot includes a diagonal,
+the observed points, and the evaluation count. It connects points in nominal-level
+order without smoothing rates or enforcing monotonicity. Connecting lines are
+visual guides, not predictions at unmeasured levels or evidence of nested intervals.
+All methods are validated before output is created; the figure is closed after
+saving or a plotting failure. The filename extension selects the Matplotlib output
+format, including PNG and SVG.
+
+The offline `examples/run_interval_calibration.py` fixes levels 0.5, 0.7, 0.8, 0.9,
+and 0.95 before evaluation. At each level it fits quantile models on 2000 training
+rows and computes a CQR threshold on 1000 separate calibration rows. It evaluates
+both methods on the same 1000 untouched test rows, then exports a PNG and a CSV
+with the plotted rates and their accompanying width diagnostics. It uses a fixed
+seed and a noninteractive plotting backend, so it runs without downloads or GUI windows.
+
+Rates at different levels are correlated because they reuse the same test rows.
+The curve is descriptive and has no uncertainty band; proximity to the diagonal
+does not prove conditional coverage or identify the best method. Choose models,
+levels, and tuning settings on development data, then use this plot for final
+evaluation. A method selected from this test plot needs a new independent evaluation.
+
 ## Multiclass conformal prediction
 
 `calibrated_ml_lab.conformal.multiclass` implements split conformal prediction with

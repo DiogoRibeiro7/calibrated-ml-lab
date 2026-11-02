@@ -25,6 +25,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Gradient-boosted quantile regression intervals with feature-dependent widths (Python API).
 - Conformalized quantile regression with signed corrections and explicit empty-set diagnostics.
 - Coverage and interval-width diagnostics.
+- Interval calibration tables and plots across nominal coverage levels.
 - Empirical multiclass coverage by true class and named data slices.
 - Decision-threshold evaluation before and after calibration.
 - Markdown reports and plots.
@@ -218,6 +219,24 @@ This example uses disjoint model-training, conformal-calibration, and test data,
 and compares base and corrected coverage and widths. See
 [conformalized quantile regression](docs/methodology.md#conformalized-quantile-regression)
 for the exact finite-sample rule, empty-set handling, and marginal coverage assumptions.
+
+## Interval calibration curves
+
+Use `interval_calibration_table` from `calibrated_ml_lab.uncertainty.intervals` to
+compare nominal and empirical coverage at several levels. The table retains
+observation counts, covered counts, signed coverage gaps, interval widths, and
+empty-set rates. `plot_interval_calibration` from
+`calibrated_ml_lab.visualization.plots` exports a comparison of one or more methods.
+
+```bash
+poetry run python examples/run_interval_calibration.py --output-dir .artifacts/interval_calibration
+```
+
+The example exports `interval_calibration.png` and `interval_calibration.csv` for
+quantile and conformalized quantile intervals at five preset levels, using separate
+training, calibration, and test rows. Review the widths alongside the coverage
+curve. See [interval calibration diagnostics](docs/methodology.md#interval-calibration-across-nominal-levels)
+for input conventions and interpretation.
 
 ## Main outputs
 

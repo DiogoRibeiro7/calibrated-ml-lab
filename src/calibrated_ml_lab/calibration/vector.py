@@ -6,7 +6,7 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.special import logsumexp, softmax
 
-from calibrated_ml_lab._validation import as_vector, class_indices, logit_matrix
+from calibrated_ml_lab._validation import class_indices, logit_matrix, scaling_options
 
 
 def _center_affine(logits: np.ndarray, weights: np.ndarray, bias: np.ndarray) -> np.ndarray:
@@ -60,27 +60,11 @@ class MulticlassVectorScaler:
         self.weights_: np.ndarray | None = None
         self.bias_: np.ndarray | None = None
         self.n_classes_: int | None = None
-        self._validate_options()
-
-    def _validate_options(self) -> tuple[float, int]:
-        """Validate options on construction and on refits after attribute changes."""
-        raw = np.asarray(self.l2)
-        if raw.ndim != 0 or isinstance(raw.item(), bool | np.bool_):
-            raise ValueError("l2 must be a finite nonnegative scalar")
-        l2 = float(as_vector(raw.reshape(1), "l2")[0])
-        if l2 < 0:
-            raise ValueError("l2 must be a finite nonnegative scalar")
-        if (
-            isinstance(self.max_iter, bool | np.bool_)
-            or not isinstance(self.max_iter, int | np.integer)
-            or self.max_iter <= 0
-        ):
-            raise ValueError("max_iter must be a positive integer")
-        return l2, int(self.max_iter)
+        scaling_options(self.l2, self.max_iter)
 
     def fit(self, logits: np.ndarray, y_true: np.ndarray) -> MulticlassVectorScaler:
         """Fit deterministically from identity; failed refits retain previous parameters."""
-        l2, max_iter = self._validate_options()
+        l2, max_iter = scaling_options(self.l2, self.max_iter)
         values = logit_matrix(logits)
         n_rows, n_classes = values.shape
         labels = class_indices(y_true, n_classes)

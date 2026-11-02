@@ -1,4 +1,4 @@
-"""Shared array validation for probability evaluation and conformal prediction."""
+"""Shared numeric validation for calibration, evaluation, and conformal prediction."""
 
 from __future__ import annotations
 
@@ -72,6 +72,23 @@ def logit_matrix(values: np.ndarray) -> np.ndarray:
             "logits must have shape (n_samples, n_classes) with rows and at least 2 classes"
         )
     return as_vector(raw.reshape(-1), "logits").reshape(raw.shape)
+
+
+def scaling_options(l2: float, max_iter: int) -> tuple[float, int]:
+    """Validate regularization and iteration limits for affine logit calibration."""
+    raw = np.asarray(l2)
+    if raw.ndim != 0 or isinstance(raw.item(), bool | np.bool_):
+        raise ValueError("l2 must be a finite nonnegative scalar")
+    penalty = float(as_vector(raw.reshape(1), "l2")[0])
+    if penalty < 0:
+        raise ValueError("l2 must be a finite nonnegative scalar")
+    if (
+        isinstance(max_iter, bool | np.bool_)
+        or not isinstance(max_iter, int | np.integer)
+        or max_iter <= 0
+    ):
+        raise ValueError("max_iter must be a positive integer")
+    return penalty, int(max_iter)
 
 
 def probability_matrix(values: np.ndarray, name: str = "y_prob") -> np.ndarray:

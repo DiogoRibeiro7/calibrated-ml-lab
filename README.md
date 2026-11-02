@@ -17,6 +17,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Temperature scaling.
 - Multiclass temperature scaling from logits (Python API).
 - Regularized multiclass vector scaling with class-specific weights and biases (Python API).
+- Regularized multiclass matrix scaling for corrections that mix class logits (Python API).
 - Multiclass confidence, top-label, and class-wise calibration diagnostics.
 - Split conformal classification.
 - Multiclass split-conformal prediction sets (Python API).
@@ -139,6 +140,21 @@ vector-scaled predictions on independent synthetic calibration and test rows.
 It reports log loss, accuracy, and all three ECE summaries without selecting a
 method from test outcomes. See [vector scaling](docs/methodology.md#multiclass-vector-scaling)
 for the objective, options, and limitations.
+
+`MulticlassMatrixScaler` from `calibrated_ml_lab.calibration.matrix` fits a full
+affine transformation, `softmax(logits @ weights_.T + bias_)`. Each output class can
+use every input logit. The default penalty shrinks the weights towards the identity
+matrix and biases towards zero. Its `K² + K` coefficients can overfit small
+calibration samples, so choose the method and regularization on separate development data.
+
+```bash
+poetry run python examples/run_matrix_scaling.py
+```
+
+This offline example compares temperature, vector, and matrix scaling against
+uncalibrated predictions under fixed mixing of class logits. See
+[matrix scaling](docs/methodology.md#multiclass-matrix-scaling) for matrix orientation,
+parameter ambiguity, numerical limits, and evaluation requirements.
 
 The functions in `calibrated_ml_lab.calibration.multiclass_metrics` accept class-index
 labels and a matrix of class probabilities:

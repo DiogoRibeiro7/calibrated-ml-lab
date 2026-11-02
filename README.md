@@ -22,6 +22,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Split conformal classification.
 - Multiclass split-conformal prediction sets (Python API).
 - Split conformal regression intervals.
+- Gradient-boosted quantile regression intervals with feature-dependent widths (Python API).
 - Coverage and interval-width diagnostics.
 - Empirical multiclass coverage by true class and named data slices.
 - Decision-threshold evaluation before and after calibration.
@@ -181,6 +182,25 @@ they do not establish class- or slice-conditional coverage guarantees. See
 [multiclass conformal prediction](docs/methodology.md#multiclass-conformal-prediction)
 and [grouped coverage](docs/methodology.md#coverage-by-class-and-slice)
 for input requirements, data separation, and interpretation.
+
+## Quantile regression intervals
+
+Use `QuantileIntervalRegressor` from `calibrated_ml_lab.models.quantile` to fit
+lower and upper conditional quantiles on numeric training features. The default
+`alpha=0.1` fits the 5th and 95th percentiles for a nominal 90% interval.
+`predict_quantiles` returns the raw estimates; `predict_interval` orders crossed
+endpoints. Report the crossing rate and evaluate coverage on separate test rows.
+These estimates do not have a finite-sample coverage guarantee.
+
+```bash
+poetry run python examples/run_quantile_regression.py
+```
+
+The offline example fits on 2000 rows and evaluates another 1000 rows with
+feature-dependent noise. It reports coverage, interval widths, crossing rate,
+and pinball losses, with coverage and widths for two fixed noise regions.
+See [quantile regression intervals](docs/methodology.md#quantile-regression-intervals)
+for the API, input requirements, and interpretation.
 
 ## Main outputs
 

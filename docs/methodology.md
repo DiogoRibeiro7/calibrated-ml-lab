@@ -292,6 +292,77 @@ These summaries do not establish full multiclass calibration, fairness, or robus
 under distribution shift. The example reports these metrics separately from accuracy
 and log loss, since optimizing log loss need not improve the binned errors.
 
+## Quantile regression intervals
+
+`QuantileIntervalRegressor` in `calibrated_ml_lab.models.quantile` fits two
+gradient-boosted regression models with quantile (pinball) loss. For residual
+`r = y - prediction` and quantile level `tau`, this loss is
+`max(tau * r, (tau - 1) * r)`. The two levels are `alpha / 2` and `1 - alpha / 2`;
+the default `alpha=0.1` targets a central 90% prediction interval.
+This uses scikit-learn's
+[quantile-loss gradient boosting](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingRegressor.html).
+
+```python
+from calibrated_ml_lab.models.quantile import QuantileIntervalRegressor
+from calibrated_ml_lab.conformal.regression import regression_interval_metrics
+
+model = QuantileIntervalRegressor(alpha=0.1, random_state=42).fit(train_x, train_y)
+raw_lower, raw_upper = model.predict_quantiles(test_x)
+crossing_rate = (raw_lower > raw_upper).mean()
+lower, upper = model.predict_interval(test_x)
+summary = regression_interval_metrics(test_y, lower, upper)
+```
+
+Both prediction methods return a pair of one-dimensional arrays. The raw pair
+retains the fitted quantile identities, including crossings. Independently fitted
+quantile models can disagree about their ordering. `predict_interval` swaps the
+endpoints wherever the raw lower estimate exceeds the raw upper estimate; tied
+estimates produce zero-width intervals. This guarantees ordered bounds, without
+guaranteeing coverage or that the swapped endpoints still estimate their original
+quantile levels. Use raw predictions for level-specific pinball losses and report
+the crossing rate alongside metrics on the ordered intervals.
+
+The wrapper accepts finite, dense numeric feature matrices with at least one row
+and column, and a finite one-dimensional target vector with one value per row.
+Numeric-looking strings, complex values, NaN, infinity, and malformed shapes are
+rejected. Features must fit within the finite float32 range used internally by
+the trees; values also inherit float32 precision. Feature columns are positional,
+including DataFrames: names and indices do not align or reorder inputs. Preserve
+their count and meaning at prediction time. Encode categorical features and fit
+any imputation or other preprocessing using training rows only.
+
+`alpha` must yield two distinct representable levels strictly inside `(0, 1)`.
+Tree settings are positive integers: `n_estimators=100`, `max_depth=3`, and
+`min_samples_leaf=9`. `learning_rate=0.05` must be finite and positive.
+`random_state=42` must be an integer from 0 through `2**32 - 1` for reproducibility.
+Booleans and numeric strings are rejected as options. The two models use the same
+settings and seed. Hyperparameters are revalidated on refit; changing an option
+does not change an already fitted model. `alpha_`, `quantiles_`, and `n_features_in_`
+describe the last successful fit. This is a small fit/prediction wrapper, rather
+than a complete scikit-learn estimator with cloning and grid-search support.
+
+Fit stages both models and validates their training predictions before replacing
+any existing fit. If either fit fails, previous models and fitted metadata remain
+usable. Unfitted prediction raises `RuntimeError`. Invalid user input raises
+`ValueError`; detected numerical failures during training and malformed or
+nonfinite model predictions raise `RuntimeError`.
+
+The reproducible `examples/run_quantile_regression.py` generates a nonlinear mean
+with increasing noise as its input feature increases. It fixes settings in advance,
+fits on 2000 training rows, and reports coverage, widths, raw crossing rate, and
+pinball losses on another 1000 independent rows. Two feature regions fixed at zero
+also show how widths and observed coverage differ with noise. The example reaches
+87.9% overall test coverage for a 90% target; the wider intervals in the noisier
+region do not establish conditional coverage.
+
+These are model-based intervals for future responses, not confidence intervals for
+the conditional mean. A nominal target is not a distribution-free finite-sample
+guarantee. Tune quantile-model settings using a validation split or development-data
+cross-validation, then evaluate on untouched test rows. Underfitting, overfitting,
+distribution shift, and inaccurate tail estimates can reduce coverage. Conformalized
+quantile regression requires an additional independent calibration step and remains
+a separate roadmap item.
+
 ## Implemented conformal methods
 
 - Split conformal classification using nonconformity score `1 - p_true`.

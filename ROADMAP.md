@@ -53,7 +53,8 @@
 
 ## v0.3 — Regression uncertainty
 
-- [ ] Add quantile regression intervals.
+- [x] Add gradient-boosted quantile regression intervals with raw crossing diagnostics,
+  ordered bounds, and an offline evaluation on independent heteroskedastic test rows.
 - [ ] Add bootstrap prediction intervals.
 - [ ] Add conformalized quantile regression.
 - [ ] Add interval calibration plots.

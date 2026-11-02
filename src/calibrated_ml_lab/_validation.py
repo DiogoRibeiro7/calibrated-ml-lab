@@ -54,3 +54,33 @@ def binary_inputs(y_true: np.ndarray, y_prob: np.ndarray) -> tuple[np.ndarray, n
     if len(y) != len(p):
         raise ValueError("y_true and y_prob must have the same length")
     return y, p
+
+
+def class_indices(values: np.ndarray, n_classes: int, name: str = "y_true") -> np.ndarray:
+    """Validate a vector of integer-valued class-column indices."""
+    y = as_vector(values, name)
+    if not ((y >= 0) & (y < n_classes) & (y == np.floor(y))).all():
+        raise ValueError(f"{name} must contain integer class indices in [0, n_classes)")
+    return y.astype(int)
+
+
+def probability_matrix(values: np.ndarray, name: str = "y_prob") -> np.ndarray:
+    """Validate multiclass probability rows without clipping or renormalizing them."""
+    raw = np.asarray(values)
+    if raw.ndim != 2 or raw.shape[0] == 0 or raw.shape[1] < 2:
+        raise ValueError(f"{name} must be a nonempty matrix with at least 2 class columns")
+    p = as_vector(raw.reshape(-1), name).reshape(raw.shape)
+    if not ((p >= 0) & (p <= 1)).all():
+        raise ValueError(f"{name} must contain probabilities in [0, 1]")
+    if not np.isclose(p.sum(axis=1), 1.0, rtol=0.0, atol=1e-6).all():
+        raise ValueError(f"each {name} row must sum to 1 within an absolute tolerance of 1e-6")
+    return np.asarray(p, dtype=float)
+
+
+def multiclass_inputs(y_true: np.ndarray, y_prob: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Validate aligned class indices and multiclass probability rows."""
+    p = probability_matrix(y_prob)
+    y = class_indices(y_true, p.shape[1])
+    if len(y) != len(p):
+        raise ValueError("y_true and y_prob must have the same number of rows")
+    return y, p

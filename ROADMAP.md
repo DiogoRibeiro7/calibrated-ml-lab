@@ -43,7 +43,8 @@
 - [ ] Add vector scaling and matrix scaling.
 - [x] Add pooled confidence and top-label calibration diagnostics with bin tables.
 - [x] Add one-versus-rest class-wise ECE/MCE and macro class-wise ECE.
-- [ ] Add multi-class conformal prediction sets.
+- [x] Add multi-class split-conformal prediction sets and empirical coverage summaries,
+  with separate temperature-fitting, conformal-calibration, and test rows.
 - [ ] Add coverage by class and slice.
 
 ## v0.3 — Regression uncertainty

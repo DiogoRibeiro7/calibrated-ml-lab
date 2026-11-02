@@ -5,26 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from calibrated_ml_lab._validation import as_vector
+from calibrated_ml_lab._validation import multiclass_inputs
 from calibrated_ml_lab.calibration.metrics import calibration_bins
-
-
-def _multiclass_inputs(y_true: np.ndarray, y_prob: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Validate class-index labels and probability rows without renormalizing them."""
-    raw = np.asarray(y_prob)
-    if raw.ndim != 2 or raw.shape[0] == 0 or raw.shape[1] < 2:
-        raise ValueError("y_prob must be a nonempty matrix with at least 2 class columns")
-    p = as_vector(raw.reshape(-1), "y_prob").reshape(raw.shape)
-    if not ((p >= 0) & (p <= 1)).all():
-        raise ValueError("y_prob must contain probabilities in [0, 1]")
-    if not np.isclose(p.sum(axis=1), 1.0, rtol=0.0, atol=1e-6).all():
-        raise ValueError("each y_prob row must sum to 1 within an absolute tolerance of 1e-6")
-    y = as_vector(y_true, "y_true")
-    if len(y) != len(p):
-        raise ValueError("y_true and y_prob must have the same number of rows")
-    if not ((y >= 0) & (y < p.shape[1]) & (y == np.floor(y))).all():
-        raise ValueError("y_true must contain integer class indices in [0, n_classes)")
-    return y.astype(int), p
 
 
 def confidence_calibration_bins(
@@ -38,7 +20,7 @@ def confidence_calibration_bins(
     left-inclusive, with confidence 1 in the last bin. Empty bins remain visible.
     Weights are fractions of all input rows.
     """
-    y, p = _multiclass_inputs(y_true, y_prob)
+    y, p = multiclass_inputs(y_true, y_prob)
     predictions = p.argmax(axis=1)
     bins = calibration_bins((predictions == y).astype(int), p.max(axis=1), n_bins=n_bins)
     return bins.rename(
@@ -60,7 +42,7 @@ def top_label_calibration_bins(
     top-label ECE. Classes never predicted retain empty bins with zero weight and
     NaN means. Exact ties select the first class column, as in NumPy argmax.
     """
-    y, p = _multiclass_inputs(y_true, y_prob)
+    y, p = multiclass_inputs(y_true, y_prob)
     predictions = p.argmax(axis=1)
     confidence = p.max(axis=1)
     correct = (predictions == y).astype(int)
@@ -96,7 +78,7 @@ def classwise_calibration_errors(
     Include all probability columns, even classes absent from the labels or never
     predicted. positive_count exposes missing labels; count is the total row count.
     """
-    y, p = _multiclass_inputs(y_true, y_prob)
+    y, p = multiclass_inputs(y_true, y_prob)
     rows = []
     for class_index in range(p.shape[1]):
         events = (y == class_index).astype(int)

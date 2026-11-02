@@ -179,6 +179,68 @@ these choices are fixed. Extra flexibility can overfit small calibration samples
 better fitting NLL does not guarantee better test NLL, ECE, or accuracy. If using
 conformal prediction, compute a fresh threshold after fixing this calibrator.
 
+## Multiclass matrix scaling
+
+`MulticlassMatrixScaler` in `calibrated_ml_lab.calibration.matrix` fits a full
+affine transformation of the original logits, following the matrix-scaling model
+in [Guo et al. (2017), section 4.2](https://proceedings.mlr.press/v70/guo17a/guo17a.pdf).
+For a row-oriented input matrix, predictions are
+`softmax(logits @ weights_.T + bias_, axis=1)`. The fitted `weights_` has shape
+`(K, K)`: row `j` contains the weights from every input logit to output class `j`.
+The fitted `bias_` has shape `(K,)`, and `n_classes_` records `K`.
+
+```python
+from calibrated_ml_lab.calibration.matrix import MulticlassMatrixScaler
+
+calibrator = MulticlassMatrixScaler(l2=1e-3, max_iter=1000)
+calibrator.fit(calibration_logits, calibration_labels)
+test_probabilities = calibrator.transform(test_logits)
+```
+
+The implementation minimizes this regularized objective:
+
+```text
+mean negative log likelihood + l2 / 2 * (sum((weights - identity)**2) + sum(bias**2))
+```
+
+All weights, including off-diagonal entries, are unconstrained real numbers.
+The penalty shrinks the complete matrix towards identity and biases towards zero.
+Options and fitting safeguards match vector scaling: finite `l2 >= 0` (default
+`1e-3`), integer `max_iter > 0` (default 1000), deterministic initialization at
+identity, L-BFGS-B with an analytic gradient, and a recomputed objective comparison
+against identity after successful optimization. The accepted calibration-set NLL
+is no worse than identity within numerical precision. Zero regularization can
+leave no finite optimum for separable or missing-class samples.
+
+Softmax probabilities do not uniquely identify every matrix coefficient: adding
+the same vector to every output row of `weights_`, or the same scalar to every
+bias, adds a common output-logit offset and leaves probabilities unchanged.
+The identity penalty favors a particular representative. Interpret predictions
+and differences between output classes instead of treating unregularized weights
+as unique explanations.
+
+Input validation, class-column ordering, missing-class support, failed-refit
+preservation, and numeric error behavior follow the vector-scaling contract.
+Use finite nonempty logits with at least two class columns and aligned integer
+class-index labels. Preserve the model's original logit convention: row offsets
+are subtracted only after the affine map. Unsafe matrix products or optimizer
+arithmetic raise errors; nonconvergence raises `RuntimeError`. Successful transforms
+return finite normalized probability rows, which can include rounded zeros or ones.
+As with vector scaling, the winning class and accuracy can change.
+
+The `K² + K` stored coefficients increase memory, optimization cost, and the risk
+of fitting noise in small calibration samples. More flexibility does not guarantee
+better held-out log loss, accuracy, or calibration. Choose regularization and the
+calibration method on separate selection data or development-data cross-validation.
+Keep final test data untouched and fit any conformal threshold only after these
+choices are fixed.
+
+The offline `examples/run_matrix_scaling.py` uses a fixed invertible mixing matrix
+to distort synthetic logits. It fits the three calibrators on 2000 independent
+rows and reports their log loss, accuracy, and three ECE summaries on another
+1000 rows alongside uncalibrated predictions. The generator and both L2 penalties
+are fixed before evaluation; it does not select a method from test outcomes.
+
 ## Multiclass calibration diagnostics
 
 `calibrated_ml_lab.calibration.multiclass_metrics` evaluates probability matrices.

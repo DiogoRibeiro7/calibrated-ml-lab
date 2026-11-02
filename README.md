@@ -21,6 +21,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Multiclass split-conformal prediction sets (Python API).
 - Split conformal regression intervals.
 - Coverage and interval-width diagnostics.
+- Empirical multiclass coverage by true class and named data slices.
 - Decision-threshold evaluation before and after calibration.
 - Markdown reports and plots.
 - CLI and notebook workflows.
@@ -136,10 +137,18 @@ for bin weights, missing classes, and probability ties.
 
 The functions in `calibrated_ml_lab.conformal.multiclass` compute a threshold from
 fresh calibration probabilities, return boolean prediction-set membership matrices,
-and summarize empirical coverage and set size. The example reports these quantities
-at a 90% coverage target, including the empty-set rate. See
+and summarize empirical coverage and set size. `multiclass_coverage_by_class` groups
+observations by their true class; `multiclass_coverage_by_slice` accepts named binary
+masks for custom groups. Both tables show counts and covered counts alongside rates,
+and retain empty groups with undefined statistics.
+
+The example reports overall, per-class, and feature-slice coverage at a 90% target,
+including set sizes and empty-set rates. Its feature slices use a fixed zero cutoff
+on the first input feature. These diagnostics expose differences between groups;
+they do not establish class- or slice-conditional coverage guarantees. See
 [multiclass conformal prediction](docs/methodology.md#multiclass-conformal-prediction)
-for input requirements, data separation, and coverage assumptions.
+and [grouped coverage](docs/methodology.md#coverage-by-class-and-slice)
+for input requirements, data separation, and interpretation.
 
 ## Main outputs
 

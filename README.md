@@ -18,6 +18,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Multiclass temperature scaling from logits (Python API).
 - Multiclass confidence, top-label, and class-wise calibration diagnostics.
 - Split conformal classification.
+- Multiclass split-conformal prediction sets (Python API).
 - Split conformal regression intervals.
 - Coverage and interval-width diagnostics.
 - Decision-threshold evaluation before and after calibration.
@@ -110,11 +111,12 @@ Run the reproducible, offline example:
 poetry run python examples/run_multiclass.py
 ```
 
-The example uses separate model-training, calibration, and test sets. It deliberately
+The example uses separate model-training, temperature-fitting, conformal-calibration,
+and test sets (60/20/10/10%). It deliberately
 amplifies logits to simulate overconfidence, then reports temperature, test log loss,
 and test accuracy before and after calibration. It also reports confidence ECE,
 top-label ECE, and per-class ECE/MCE on the test set. In this example, log loss
-improves while the binned calibration errors increase; the output keeps both results
+improves while some binned calibration errors increase; the output keeps both results
 visible. This illustrates the method;
 calibration does not guarantee better performance on unseen data.
 See [the multiclass API contract](docs/methodology.md#multiclass-temperature-scaling)
@@ -131,6 +133,13 @@ labels and a matrix of class probabilities:
 
 See [the diagnostic definitions](docs/methodology.md#multiclass-calibration-diagnostics)
 for bin weights, missing classes, and probability ties.
+
+The functions in `calibrated_ml_lab.conformal.multiclass` compute a threshold from
+fresh calibration probabilities, return boolean prediction-set membership matrices,
+and summarize empirical coverage and set size. The example reports these quantities
+at a 90% coverage target, including the empty-set rate. See
+[multiclass conformal prediction](docs/methodology.md#multiclass-conformal-prediction)
+for input requirements, data separation, and coverage assumptions.
 
 ## Main outputs
 

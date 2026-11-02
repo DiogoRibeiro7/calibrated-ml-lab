@@ -107,8 +107,9 @@ Invalid inputs and optimizer failures preserve a previous successful fit, includ
 its class count. Transforming an unfitted instance raises `RuntimeError`.
 
 Fit the model, fit the calibrator, and evaluate final predictions on separate data.
-The example in `examples/run_multiclass.py` uses 60/20/20 splits and a fixed seed,
-with no external downloads. Improved calibration-set loss does not guarantee improved
+The example in `examples/run_multiclass.py` uses 60/20/10/10 splits for model training,
+temperature fitting, conformal calibration, and final testing, with a fixed seed and
+no external downloads. Improved calibration-set loss does not guarantee improved
 test loss, ECE, class-wise calibration, or robustness under distribution shift.
 
 ## Multiclass calibration diagnostics
@@ -175,12 +176,72 @@ real line. Capping the rank at `n` would understate uncertainty in this case.
 See the [coverage proof in Appendix D of Angelopoulos and Bates](https://arxiv.org/html/2107.07511v6)
 for the ranked-score rule and the infinite-threshold case.
 
-Conformal functions require nonempty, one-dimensional inputs of matching lengths.
+Binary-classification and regression conformal functions require nonempty,
+one-dimensional inputs of matching lengths.
 Labels must be exactly 0 or 1; probabilities must be finite and in [0, 1]; regression
 targets and predictions must be finite. Invalid values raise `ValueError` rather
 than being truncated or silently broadcast. Interval metrics accept ordered
 infinite bounds, report infinite widths, and reject NaN or reversed bounds.
 Prediction-set metrics check that membership columns and set sizes agree.
+
+## Multiclass conformal prediction
+
+`calibrated_ml_lab.conformal.multiclass` implements split conformal prediction with
+scores `1 - p_true_class`. Fit the model and any temperature scaler first, then
+freeze them before computing scores on fresh conformal-calibration rows. The score
+construction follows the classification example in
+[Angelopoulos and Bates](https://arxiv.org/html/2107.07511v6#S1).
+
+```python
+from calibrated_ml_lab.conformal.multiclass import (
+    multiclass_conformal_threshold,
+    multiclass_prediction_sets,
+    multiclass_set_coverage,
+)
+
+qhat = multiclass_conformal_threshold(conformal_labels, conformal_probabilities, alpha=0.1)
+membership = multiclass_prediction_sets(test_probabilities, qhat)
+summary = multiclass_set_coverage(test_labels, membership)
+```
+
+Probability inputs use the same validation as the multiclass diagnostics: nonempty
+matrices with at least two class columns, finite entries in `[0, 1]`, and row sums
+within absolute tolerance `1e-6` of one. No clipping or renormalization is applied.
+Labels are integer-valued class-column indices; absent classes are allowed.
+Keep the number and meaning of probability columns consistent across calibration,
+prediction, and evaluation. The functional API does not store a class mapping.
+
+The threshold is the score at rank `ceil((n + 1) * (1 - alpha))`, with positive
+infinity when that rank exceeds the number of calibration rows. Set construction
+uses `(1 - probabilities) <= qhat` directly, matching the calibration-score
+arithmetic and including ties. It does not reconstruct a probability cutoff through
+another subtraction, which could exclude boundary scores through floating-point
+rounding. A threshold of infinity includes all classes.
+
+The result is a boolean `(n_rows, n_classes)` matrix: entry `[i, k]` indicates that
+class `k` belongs to row `i`'s prediction set. Row sums give set sizes. Empty sets
+are retained, without forcing a top prediction into them. Coverage evaluation also
+accepts numeric membership matrices containing only 0 and 1; other values are
+rejected. It returns `coverage`, `average_set_size`, `singleton_rate`, and
+`empty_set_rate`. Both labels and membership must be nonempty and aligned.
+
+Conformal `alpha` values must be finite numeric scalars strictly between zero and
+one. Thresholds must be nonnegative numeric scalars, allowing positive infinity.
+Numeric-looking strings, complex values, and one-element vectors are rejected.
+
+The example reserves 20% of rows without consulting labels, then divides that pool
+equally into conformal calibration and final testing, also without stratification.
+The remaining 80% is split into model-training and temperature-fitting subsets using
+only development labels. All four subsets are disjoint. Changing conformal or test
+labels cannot change the development rows or their labels, and neither held-out
+subset fits the temperature. Predictions and the threshold are fixed before test
+labels are used for evaluation.
+
+The coverage guarantee is marginal and requires exchangeable conformal-calibration
+and future observations with a fixed score function. It does not guarantee coverage
+for every class, feature slice, or individual example. Empirical test coverage may
+fall below the target on a finite sample. Random row splits do not address repeated
+entities, time dependence, or distribution shift; use a suitable sampling design.
 
 ## Classification evaluation protocol
 

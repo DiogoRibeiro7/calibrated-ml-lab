@@ -1,4 +1,4 @@
-"""Evaluate multiclass temperature scaling on a separate synthetic test set."""
+"""Evaluate multiclass calibration and conformal sets on held-out synthetic data."""
 
 from __future__ import annotations
 
@@ -18,6 +18,44 @@ from calibrated_ml_lab.calibration.multiclass_metrics import (
     classwise_calibration_errors,
     multiclass_calibration_metrics,
 )
+from calibrated_ml_lab.conformal.multiclass import (
+    multiclass_conformal_threshold,
+    multiclass_prediction_sets,
+    multiclass_set_coverage,
+)
+
+
+def split_multiclass_data(
+    features: np.ndarray,
+    labels: np.ndarray,
+    seed: int = 42,
+) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """Allocate roughly 60/20/10/10% to disjoint model, temperature, conformal, and test rows."""
+    development_x, held_out_x, development_y, held_out_y = train_test_split(
+        features,
+        labels,
+        test_size=0.2,
+        random_state=seed,
+    )
+    train_x, calibration_x, train_y, calibration_y = train_test_split(
+        development_x,
+        development_y,
+        test_size=0.25,
+        stratify=development_y,
+        random_state=seed,
+    )
+    conformal_x, test_x, conformal_y, test_y = train_test_split(
+        held_out_x,
+        held_out_y,
+        test_size=0.5,
+        random_state=seed + 1,
+    )
+    return {
+        "train": (train_x, train_y),
+        "calibration": (calibration_x, calibration_y),
+        "conformal": (conformal_x, conformal_y),
+        "test": (test_x, test_y),
+    }
 
 
 def main() -> None:
@@ -31,36 +69,35 @@ def main() -> None:
         n_clusters_per_class=1,
         random_state=42,
     )
-    train_x, held_out_x, train_y, held_out_y = train_test_split(
-        features,
-        labels,
-        test_size=0.4,
-        stratify=labels,
-        random_state=42,
-    )
-    calibration_x, test_x, calibration_y, test_y = train_test_split(
-        held_out_x,
-        held_out_y,
-        test_size=0.5,
-        stratify=held_out_y,
-        random_state=43,
-    )
+    splits = split_multiclass_data(features, labels)
+    train_x, train_y = splits["train"]
+    calibration_x, calibration_y = splits["calibration"]
+    conformal_x, conformal_y = splits["conformal"]
+    test_x, test_y = splits["test"]
     model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=500))
     model.fit(train_x, train_y)
     # Deliberately amplify confidence to illustrate a known source of miscalibration.
     calibration_logits = 3.0 * model.decision_function(calibration_x)
     scaler = MulticlassTemperatureScaler().fit(calibration_logits, calibration_y)
+    alpha = 0.1
+    conformal_probabilities = scaler.transform(3.0 * model.decision_function(conformal_x))
+    threshold = multiclass_conformal_threshold(conformal_y, conformal_probabilities, alpha)
     test_logits = 3.0 * model.decision_function(test_x)
     raw = softmax(test_logits, axis=1)
     calibrated = scaler.transform(test_logits)
+    prediction_sets = multiclass_prediction_sets(calibrated, threshold)
     print(
         json.dumps(
             {
                 "seed": 42,
                 "train_rows": len(train_y),
                 "calibration_rows": len(calibration_y),
+                "conformal_rows": len(conformal_y),
                 "test_rows": len(test_y),
                 "temperature": scaler.temperature_,
+                "conformal_alpha": alpha,
+                "conformal_threshold": threshold,
+                "test_conformal": multiclass_set_coverage(test_y, prediction_sets),
                 "test_log_loss_before": log_loss(test_y, raw, labels=np.arange(3)),
                 "test_log_loss_after": log_loss(test_y, calibrated, labels=np.arange(3)),
                 "test_accuracy_before": accuracy_score(test_y, raw.argmax(axis=1)),

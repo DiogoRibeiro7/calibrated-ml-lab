@@ -228,14 +228,27 @@ def test_example_runs_offline_from_another_directory(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     metrics = json.loads(result.stdout)
-    assert (metrics["train_rows"], metrics["calibration_rows"], metrics["test_rows"]) == (
+    assert (
+        metrics["train_rows"],
+        metrics["calibration_rows"],
+        metrics["conformal_rows"],
+        metrics["test_rows"],
+    ) == (
         1440,
         480,
-        480,
+        240,
+        240,
     )
     assert metrics["temperature"] > 1.0
     assert metrics["test_log_loss_after"] < metrics["test_log_loss_before"]
     assert metrics["test_accuracy_after"] == metrics["test_accuracy_before"]
+    assert metrics["conformal_alpha"] == 0.1
+    assert 0 <= metrics["conformal_threshold"] <= 1
+    conformal = metrics["test_conformal"]
+    assert set(conformal) == {"coverage", "average_set_size", "singleton_rate", "empty_set_rate"}
+    assert 0 <= conformal["coverage"] <= 1 - conformal["empty_set_rate"]
+    assert 0 <= conformal["singleton_rate"] <= 1
+    assert conformal["singleton_rate"] <= conformal["average_set_size"] <= 3
     assert metrics["calibration_bins"] == 10
     for stage in ("before", "after"):
         diagnostics = metrics[f"test_calibration_{stage}"]

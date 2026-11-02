@@ -42,6 +42,10 @@ def test_cli_generates_data_and_complete_report(tmp_path: Path) -> None:
     assert generated.returncode == 0, generated.stdout + generated.stderr
     assert len(pd.read_csv(working_dir / "input data/classification.csv")) == 400
 
+    output = working_dir / "output report"
+    output.mkdir()
+    (output / "notes.txt").write_text("keep me", encoding="utf-8")
+    (output / "calibration_report.md").write_text("old report", encoding="utf-8")
     completed = run_cli(
         working_dir,
         "run",
@@ -53,7 +57,7 @@ def test_cli_generates_data_and_complete_report(tmp_path: Path) -> None:
         "output report",
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    output = working_dir / "output report"
+    assert (output / "notes.txt").read_text(encoding="utf-8") == "keep me"
     report = (output / "calibration_report.md").read_text(encoding="utf-8")
     assert "## Calibration metrics" in report
     assert "## Split-conformal classification" in report
@@ -93,3 +97,21 @@ def test_cli_generates_data_and_complete_report(tmp_path: Path) -> None:
         "threshold_tradeoff.png",
     ]:
         assert (output / "figures" / name).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_installed_cli_rejects_missing_input_without_traceback(tmp_path: Path) -> None:
+    result = run_cli(
+        tmp_path,
+        "run",
+        "--input",
+        "missing.csv",
+        "--regression-input",
+        "missing.csv",
+        "--output-dir",
+        "output",
+    )
+    assert result.returncode == 2
+    assert "does not exist" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert "Wrote" not in result.stdout
+    assert not (tmp_path / "output").exists()

@@ -13,6 +13,8 @@
   validate metric inputs, decision thresholds, and error costs consistently.
 - [x] Validate calibrator fitting and transform inputs, preserve successful fits
   after failed refits, and avoid clipping isotonic training scores.
+- [x] Report expected CLI input errors clearly and stage complete workflow artifacts
+  before publishing them, preserving existing reports when computation fails.
 
 ## v0.1 — Local calibration and uncertainty workbench
 

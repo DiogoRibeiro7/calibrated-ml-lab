@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from shutil import copytree
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+from calibrated_ml_lab._validation import as_vector
 from calibrated_ml_lab.calibration.metrics import calibration_bins, probabilistic_metrics
 from calibrated_ml_lab.calibration.scaling import IsotonicCalibrator, PlattScaler, TemperatureScaler
 from calibrated_ml_lab.conformal.classification import (
@@ -197,11 +200,17 @@ def run_classification_calibration(
 def run_regression_conformal(frame: pd.DataFrame, target: str, output_dir: Path) -> pd.DataFrame:
     """Run split-conformal regression intervals."""
 
-    train, temp = train_test_split(frame, test_size=0.4, random_state=42)
-    calibration, test = train_test_split(temp, test_size=0.5, random_state=42)
+    if target not in frame:
+        raise ValueError(f"regression target column '{target}' not found")
+    as_vector(frame[target].to_numpy(), f"regression target '{target}'")
     feature_columns = [
         col for col in frame.columns if col != target and pd.api.types.is_numeric_dtype(frame[col])
     ]
+    if not feature_columns:
+        raise ValueError("regression input must contain at least one numeric feature column")
+
+    train, temp = train_test_split(frame, test_size=0.4, random_state=42)
+    calibration, test = train_test_split(temp, test_size=0.5, random_state=42)
 
     model = build_regression_pipeline(feature_columns)
     model.fit(train[feature_columns], train[target])
@@ -249,25 +258,33 @@ def run_workflow(
     target: str = "label",
     regression_target: str = "y",
 ) -> None:
-    """Run the full calibration and uncertainty workflow."""
+    """Build all artifacts in temporary storage, then copy them to the output directory.
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    Data, model, and report-generation failures leave existing output untouched.
+    Copying the completed artifacts is not an atomic filesystem transaction.
+    """
+
+    if output_dir.exists() and not output_dir.is_dir():
+        raise NotADirectoryError(f"output directory is not a directory: {output_dir}")
     classification = pd.read_csv(classification_path)
     regression = pd.read_csv(regression_path)
 
-    class_outputs = run_classification_calibration(
-        classification, target=target, output_dir=output_dir
-    )
-    regression_summary = run_regression_conformal(
-        regression, target=regression_target, output_dir=output_dir
-    )
+    with TemporaryDirectory(prefix="calibrated-lab-") as temporary_dir:
+        staging_dir = Path(temporary_dir)
+        class_outputs = run_classification_calibration(
+            classification, target=target, output_dir=staging_dir
+        )
+        regression_summary = run_regression_conformal(
+            regression, target=regression_target, output_dir=staging_dir
+        )
 
-    write_report(
-        output_dir / "calibration_report.md",
-        metrics=class_outputs["metrics"],
-        conformal_classification=class_outputs["conformal_classification"],
-        conformal_regression=regression_summary,
-        threshold_metrics=class_outputs["threshold_metrics"],
-        selection_metrics=class_outputs["selection_metrics"],
-        classification_splits=class_outputs["classification_splits"],
-    )
+        write_report(
+            staging_dir / "calibration_report.md",
+            metrics=class_outputs["metrics"],
+            conformal_classification=class_outputs["conformal_classification"],
+            conformal_regression=regression_summary,
+            threshold_metrics=class_outputs["threshold_metrics"],
+            selection_metrics=class_outputs["selection_metrics"],
+            classification_splits=class_outputs["classification_splits"],
+        )
+        copytree(staging_dir, output_dir, dirs_exist_ok=True)

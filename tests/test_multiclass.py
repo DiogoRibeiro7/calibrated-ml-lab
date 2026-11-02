@@ -236,3 +236,16 @@ def test_example_runs_offline_from_another_directory(tmp_path: Path) -> None:
     assert metrics["temperature"] > 1.0
     assert metrics["test_log_loss_after"] < metrics["test_log_loss_before"]
     assert metrics["test_accuracy_after"] == metrics["test_accuracy_before"]
+    assert metrics["calibration_bins"] == 10
+    for stage in ("before", "after"):
+        diagnostics = metrics[f"test_calibration_{stage}"]
+        assert set(diagnostics) == {"confidence_ece", "top_label_ece", "classwise_ece"}
+        assert all(0 <= value <= 1 for value in diagnostics.values())
+        assert diagnostics["top_label_ece"] >= diagnostics["confidence_ece"] - 1e-12
+        classes = metrics[f"test_classwise_{stage}"]
+        assert [row["class_index"] for row in classes] == [0, 1, 2]
+        assert all(row["count"] == metrics["test_rows"] for row in classes)
+        assert sum(row["positive_count"] for row in classes) == metrics["test_rows"]
+        assert diagnostics["classwise_ece"] == pytest.approx(
+            np.mean([row["ece"] for row in classes])
+        )

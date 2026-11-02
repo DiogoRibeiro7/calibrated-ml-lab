@@ -14,6 +14,10 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from calibrated_ml_lab.calibration.multiclass import MulticlassTemperatureScaler
+from calibrated_ml_lab.calibration.multiclass_metrics import (
+    classwise_calibration_errors,
+    multiclass_calibration_metrics,
+)
 
 
 def main() -> None:
@@ -61,6 +65,15 @@ def main() -> None:
                 "test_log_loss_after": log_loss(test_y, calibrated, labels=np.arange(3)),
                 "test_accuracy_before": accuracy_score(test_y, raw.argmax(axis=1)),
                 "test_accuracy_after": accuracy_score(test_y, calibrated.argmax(axis=1)),
+                "calibration_bins": 10,
+                "test_calibration_before": multiclass_calibration_metrics(test_y, raw),
+                "test_calibration_after": multiclass_calibration_metrics(test_y, calibrated),
+                "test_classwise_before": classwise_calibration_errors(test_y, raw).to_dict(
+                    "records"
+                ),
+                "test_classwise_after": classwise_calibration_errors(test_y, calibrated).to_dict(
+                    "records"
+                ),
             },
             indent=2,
         )

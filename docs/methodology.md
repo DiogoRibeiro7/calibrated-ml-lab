@@ -111,6 +111,57 @@ The example in `examples/run_multiclass.py` uses 60/20/20 splits and a fixed see
 with no external downloads. Improved calibration-set loss does not guarantee improved
 test loss, ECE, class-wise calibration, or robustness under distribution shift.
 
+## Multiclass calibration diagnostics
+
+`calibrated_ml_lab.calibration.multiclass_metrics` evaluates probability matrices.
+Unlike the temperature scaler, these functions take probabilities, not logits.
+Labels are integer-valued column indices from `0` to `n_classes - 1`. Inputs must
+have matching, nonzero row counts and at least two class columns. Every entry must
+be finite and in `[0, 1]`; row sums must be within `1e-6` of one (absolute tolerance,
+with no relative tolerance). Accepted values are preserved without clipping or
+renormalization. Numeric-looking strings and fractional labels are rejected.
+
+The three ECE summaries answer different questions:
+
+| Summary | Binning and aggregation |
+| --- | --- |
+| `confidence_ece` | Bin the maximum probability against prediction correctness across all rows. Sum each bin's absolute confidence–accuracy gap weighted by its fraction of all rows. |
+| `top_label_ece` | Bin confidence and correctness separately within each predicted class. Sum gaps weighted by each class/bin's fraction of all rows. |
+| `classwise_ece` | For every class, bin its probability against the indicator that it is the true class, using all rows. Average the resulting one-versus-rest ECE values equally across all class columns. |
+
+Conditioning on the predicted class distinguishes top-label calibration from pooled
+confidence calibration, following
+[Gupta and Ramdas](https://arxiv.org/abs/2107.08353). For example, two equally sized
+groups predicted as different classes can both have confidence 0.75, but accuracies
+1.0 and 0.5. Their pooled confidence ECE is zero, while top-label ECE is 0.25.
+With the same bin edges, top-label ECE cannot be smaller than confidence ECE apart
+from floating-point rounding. Neither summary examines the entire probability vector.
+The class-wise calculation examines every column, including probabilities for classes
+that are never the winning prediction.
+
+`confidence_calibration_bins` returns `n_bins` rows; `top_label_calibration_bins`
+returns `n_classes * n_bins` rows and adds `predicted_class`. Both tables include
+bin edges, counts, global weights, mean confidence, accuracy, and absolute gaps.
+All bins are equal-width over `[0, 1]`, include their left edge, and include exactly
+one in the final bin. Empty bins have zero count, weight, and gap, with NaN means.
+Predicted classes with no rows retain their empty bins. Probability ties select
+the first column, matching NumPy's `argmax`; reordering tied columns can change
+predictions and hence confidence and top-label results.
+
+`classwise_calibration_errors` reports `class_index`, `count`, `positive_count`,
+`ece`, and `mce` for every class. `count` is the total number of input rows for
+each one-versus-rest calculation; MCE is the largest gap in a nonempty bin.
+Classes absent from the labels remain included, with `positive_count = 0`.
+The macro class-wise ECE includes every column equally, rather than weighting by
+class frequency or omitting absent classes. Zero error for an absent class does
+not demonstrate performance on positive examples of that class.
+
+Use separate evaluation data and record the chosen bin count. ECE and MCE depend
+on that choice and on sample size; MCE can be dominated by a bin with very few rows.
+These summaries do not establish full multiclass calibration, fairness, or robustness
+under distribution shift. The example reports these metrics separately from accuracy
+and log loss, since optimizing log loss need not improve the binned errors.
+
 ## Implemented conformal methods
 
 - Split conformal classification using nonconformity score `1 - p_true`.

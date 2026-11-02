@@ -41,8 +41,8 @@
 - [x] Add multi-class temperature scaling for softmax logits, with a Python API
   and a reproducible example using separate calibration and test data.
 - [ ] Add vector scaling and matrix scaling.
-- [ ] Add top-label calibration diagnostics.
-- [ ] Add class-wise ECE.
+- [x] Add pooled confidence and top-label calibration diagnostics with bin tables.
+- [x] Add one-versus-rest class-wise ECE/MCE and macro class-wise ECE.
 - [ ] Add multi-class conformal prediction sets.
 - [ ] Add coverage by class and slice.
 

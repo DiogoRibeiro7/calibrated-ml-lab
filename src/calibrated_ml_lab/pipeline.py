@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from shutil import copytree
+from shutil import copyfile
 from tempfile import TemporaryDirectory
 
 import numpy as np
@@ -287,4 +287,8 @@ def run_workflow(
             selection_metrics=class_outputs["selection_metrics"],
             classification_splits=class_outputs["classification_splits"],
         )
-        copytree(staging_dir, output_dir, dirs_exist_ok=True)
+        for artifact in staging_dir.rglob("*"):
+            if artifact.is_file():
+                destination = output_dir / artifact.relative_to(staging_dir)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                copyfile(artifact, destination)

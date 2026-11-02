@@ -1,5 +1,6 @@
 """Protect existing reports when a later workflow stage fails."""
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -47,10 +48,19 @@ def test_workflow_only_publishes_after_all_stages_succeed(
     csv = tmp_path / "data.csv"
     csv.write_text("feature,label,y\n1,0,2\n", encoding="utf-8")
     output = tmp_path / "output"
+    reference_directory = tmp_path / "reference"
+    reference_directory.mkdir()
     if existing_output:
         (output / "tables").mkdir(parents=True)
         for name in ["calibration_report.md", "tables/metrics.csv", "notes.txt"]:
             (output / name).write_text("old content", encoding="utf-8")
+        if os.name == "posix":
+            output.chmod(0o750)
+            (output / "tables").chmod(0o750)
+            (output / "tables/metrics.csv").chmod(0o640)
+    existing_modes = {
+        path: path.stat().st_mode for path in [output, *output.rglob("*")] if path.exists()
+    }
     before = {
         path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()
     }
@@ -105,6 +115,9 @@ def test_workflow_only_publishes_after_all_stages_succeed(
         assert (output / "scored_regression_test.csv").read_text(encoding="utf-8") == "new scores"
         if existing_output:
             assert (output / "notes.txt").read_text(encoding="utf-8") == "old content"
+        else:
+            assert output.stat().st_mode == reference_directory.stat().st_mode
+    assert all(path.stat().st_mode == mode for path, mode in existing_modes.items())
     assert temporary_paths
     assert all(not path.exists() for path in temporary_paths)
 

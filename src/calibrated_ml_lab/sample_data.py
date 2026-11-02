@@ -83,10 +83,10 @@ def generate_regression_data(rows: int = 2_000, seed: int = 123) -> pd.DataFrame
 def write_sample_data(output_dir: Path, rows: int = 5_000, seed: int = 42) -> tuple[Path, Path]:
     """Write classification and regression sample datasets to disk."""
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     classification = generate_classification_data(rows=rows, seed=seed)
     regression = generate_regression_data(rows=max(500, rows // 2), seed=seed + 1)
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     classification_path = output_dir / "classification.csv"
     regression_path = output_dir / "regression.csv"
     classification.to_csv(classification_path, index=False)

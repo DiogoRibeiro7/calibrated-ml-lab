@@ -77,6 +77,23 @@ poetry run calibrated-lab run \
   --regression-target y
 ```
 
+Inputs must be readable CSV files; `--output-dir` must name a directory.
+`sample-data` requires positive `--rows` and a nonnegative `--seed`.
+Invalid command options exit with status 2. Expected data or filesystem failures
+print an error to stderr and exit with status 1, without a traceback or success
+message. See [the data model](docs/data_model.md) for target requirements.
+
+The full workflow generates its report, tables, and plots in temporary storage.
+It copies them to `--output-dir` only after every computation succeeds, preserving
+an existing report if data validation, model fitting, or report generation fails.
+A successful run overwrites only files produced by that run; other files,
+including artifacts from older versions, are retained. Existing file and directory
+permissions are preserved. The final copy is not atomic: a filesystem failure
+during copying can leave partial output.
+Before copying, the workflow rejects existing symbolic links or Windows reparse
+points at the output directory, generated-file destinations, or their parents
+within the output directory. Keep the destination unchanged while a run publishes.
+
 ## Main outputs
 
 ```text

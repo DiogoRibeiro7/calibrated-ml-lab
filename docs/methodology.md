@@ -359,9 +359,9 @@ These are model-based intervals for future responses, not confidence intervals f
 the conditional mean. A nominal target is not a distribution-free finite-sample
 guarantee. Tune quantile-model settings using a validation split or development-data
 cross-validation, then evaluate on untouched test rows. Underfitting, overfitting,
-distribution shift, and inaccurate tail estimates can reduce coverage. Conformalized
-quantile regression requires an additional independent calibration step and remains
-a separate roadmap item.
+distribution shift, and inaccurate tail estimates can reduce coverage.
+[Conformalized quantile regression](#conformalized-quantile-regression) adds an
+independent calibration step after the quantile models are fixed.
 
 ## Implemented conformal methods
 
@@ -383,6 +383,78 @@ targets and predictions must be finite. Invalid values raise `ValueError` rather
 than being truncated or silently broadcast. Interval metrics accept ordered
 infinite bounds, report infinite widths, and reject NaN or reversed bounds.
 Prediction-set metrics check that membership columns and set sizes agree.
+
+## Conformalized quantile regression
+
+`calibrated_ml_lab.conformal.quantile` implements split conformalized quantile
+regression (CQR), using the signed scores in
+[Romano, Patterson, and Candès (2019), section 4](https://papers.neurips.cc/paper/8613-conformalized-quantile-regression.pdf).
+First fit the quantile models and fix any bound-ordering rule on training data.
+Then evaluate their bounds on fresh calibration observations:
+
+```text
+score[i] = max(lower_calibration[i] - y_calibration[i],
+               y_calibration[i] - upper_calibration[i])
+```
+
+`conformalized_quantile_threshold` returns the score at one-based rank
+`ceil((n + 1) * (1 - alpha))`, without interpolation. A required rank beyond the
+calibration sample size returns positive infinity. Scores inside the base interval
+can be negative; they are preserved. Applying the threshold yields
+`[lower - qhat, upper + qhat]`. Positive thresholds widen the bounds; negative
+thresholds shrink them. The infinite fallback returns the full real line.
+
+```python
+from calibrated_ml_lab.conformal.quantile import (
+    conformalized_quantile_threshold,
+    conformalized_quantile_intervals,
+    conformalized_quantile_metrics,
+)
+
+calibration_lower, calibration_upper = model.predict_interval(calibration_x)
+qhat = conformalized_quantile_threshold(
+    calibration_y, calibration_lower, calibration_upper, alpha=0.1
+)
+test_lower, test_upper = model.predict_interval(test_x)
+lower, upper = conformalized_quantile_intervals(test_lower, test_upper, qhat)
+summary = conformalized_quantile_metrics(test_y, lower, upper)
+```
+
+Calibration responses and base bounds must be aligned, nonempty, finite real
+vectors. Base bounds must be ordered; raw crossed quantiles are rejected. Use the
+same fixed ordering rule before calibration and prediction, as `predict_interval`
+does above. Fractional real regression responses are accepted; strings, complex
+values, NaN, infinity, and mismatched shapes are rejected. `alpha` is a real scalar
+strictly between zero and one. The correction accepts any finite real scalar or
+positive infinity, but rejects NaN and negative infinity. Nonrepresentable final
+scores raise `ValueError`; endpoint arithmetic may produce infinite bounds.
+
+Shrinkage can produce a corrected lower bound above its upper bound. This denotes
+an **empty set**, not a reversed interval to repair. Sorting corrected endpoints
+would change the prediction set defined by the score rule. Equal finite endpoints
+remain a singleton, which can cover an exactly matching response.
+
+Use `conformalized_quantile_metrics` for corrected intervals. It reports `coverage`,
+`average_width`, `median_width`, `min_width`, `max_width`, and `empty_set_rate`.
+Empty sets contribute zero coverage and zero width to the full-sample summaries;
+they are never dropped. Unbounded intervals can have infinite width. NaN bounds
+and purported singleton intervals at positive or negative infinity are rejected.
+The existing `regression_interval_metrics` keeps its ordered-bound contract.
+
+With quantile models, tuning choices, and preprocessing fixed independently of
+calibration observations, exchangeability of calibration and future observations
+gives marginal coverage at least `1 - alpha` under the usual conformal argument.
+This does not guarantee the realized coverage of a particular finite test sample,
+or coverage within every feature region. Avoid reusing calibration labels for
+model selection, changing the quantile models afterwards, or treating dependent
+time-series or repeated-entity observations as independent random rows.
+
+The offline example uses 2000 training rows, 1000 independent calibration rows,
+and 1000 untouched test rows from a fixed heteroskedastic generator. It reports
+base and corrected coverage, widths, empty-set rates, and two fixed noise regions.
+In this seeded run overall test coverage changes from 90.3% to 91.2%, with a small
+positive correction. These results illustrate the procedure; empirical coverage
+can differ in either direction on other data.
 
 ## Multiclass conformal prediction
 

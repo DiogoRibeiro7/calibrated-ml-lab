@@ -56,7 +56,8 @@
 - [x] Add gradient-boosted quantile regression intervals with raw crossing diagnostics,
   ordered bounds, and an offline evaluation on independent heteroskedastic test rows.
 - [ ] Add bootstrap prediction intervals.
-- [ ] Add conformalized quantile regression.
+- [x] Add conformalized quantile regression with exact signed score thresholds,
+  empty-set summaries, and separate model-training, calibration, and test rows.
 - [ ] Add interval calibration plots.
 - [ ] Add conditional coverage diagnostics by feature bins.
 

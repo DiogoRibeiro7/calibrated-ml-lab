@@ -23,6 +23,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Multiclass split-conformal prediction sets (Python API).
 - Split conformal regression intervals.
 - Gradient-boosted quantile regression intervals with feature-dependent widths (Python API).
+- Conformalized quantile regression with signed corrections and explicit empty-set diagnostics.
 - Coverage and interval-width diagnostics.
 - Empirical multiclass coverage by true class and named data slices.
 - Decision-threshold evaluation before and after calibration.
@@ -201,6 +202,22 @@ feature-dependent noise. It reports coverage, interval widths, crossing rate,
 and pinball losses, with coverage and widths for two fixed noise regions.
 See [quantile regression intervals](docs/methodology.md#quantile-regression-intervals)
 for the API, input requirements, and interpretation.
+
+To calibrate these bounds on fresh observations, use the functions in
+`calibrated_ml_lab.conformal.quantile`: `conformalized_quantile_threshold`,
+`conformalized_quantile_intervals`, and `conformalized_quantile_metrics`.
+The signed correction can widen or shrink intervals; reversed corrected bounds
+represent empty sets and must retain their order. The summary reports their rate
+and includes them as uncovered, zero-width sets.
+
+```bash
+poetry run python examples/run_conformalized_quantile.py
+```
+
+This example uses disjoint model-training, conformal-calibration, and test data,
+and compares base and corrected coverage and widths. See
+[conformalized quantile regression](docs/methodology.md#conformalized-quantile-regression)
+for the exact finite-sample rule, empty-set handling, and marginal coverage assumptions.
 
 ## Main outputs
 

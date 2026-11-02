@@ -15,6 +15,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Platt scaling.
 - Isotonic regression calibration.
 - Temperature scaling.
+- Multiclass temperature scaling from logits (Python API).
 - Split conformal classification.
 - Split conformal regression intervals.
 - Coverage and interval-width diagnostics.
@@ -93,6 +94,28 @@ during copying can leave partial output.
 Before copying, the workflow rejects existing symbolic links or Windows reparse
 points at the output directory, generated-file destinations, or their parents
 within the output directory. Keep the destination unchanged while a run publishes.
+
+## Multiclass temperature scaling
+
+Use `MulticlassTemperatureScaler` from
+`calibrated_ml_lab.calibration.multiclass` to fit one temperature on a matrix of
+calibration logits and integer class labels. Call `transform` on new logits to
+obtain normalized probabilities for every class, keeping the class-column order
+used during fitting.
+
+Run the reproducible, offline example:
+
+```bash
+poetry run python examples/run_multiclass.py
+```
+
+The example uses separate model-training, calibration, and test sets. It deliberately
+amplifies logits to simulate overconfidence, then reports temperature, test log loss,
+and test accuracy before and after calibration. This illustrates the method;
+calibration does not guarantee better performance on unseen data.
+See [the multiclass API contract](docs/methodology.md#multiclass-temperature-scaling)
+for label mapping, numerical limits, and fitting assumptions. The `calibrated-lab run`
+reporting workflow currently handles binary classification.
 
 ## Main outputs
 

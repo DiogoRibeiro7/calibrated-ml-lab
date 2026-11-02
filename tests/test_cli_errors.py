@@ -9,8 +9,12 @@ from typer.testing import CliRunner
 from calibrated_ml_lab import cli
 from calibrated_ml_lab.sample_data import generate_classification_data
 
-# Keep semantic error assertions independent of terminal colors and path wrapping.
-runner = CliRunner(env={"TERM": "dumb", "COLUMNS": "240"})
+runner = CliRunner()
+
+
+def plain_error(text: str) -> str:
+    """Remove terminal styling and panel wrapping for semantic assertions."""
+    return " ".join(Text.from_ansi(text).plain.replace("│", " ").split())
 
 
 @pytest.mark.parametrize("option,value", [("--rows", "0"), ("--rows", "-1"), ("--seed", "-1")])
@@ -18,7 +22,7 @@ def test_sample_data_rejects_invalid_ranges(tmp_path: Path, option: str, value: 
     output = tmp_path / "output"
     result = runner.invoke(cli.app, ["sample-data", "--output-dir", str(output), option, value])
     assert result.exit_code == 2
-    assert option in Text.from_ansi(result.stderr).plain
+    assert option in plain_error(result.stderr)
     assert "Traceback" not in result.stderr
     assert not output.exists()
 
@@ -32,7 +36,7 @@ def test_output_must_be_a_directory(tmp_path: Path, command: str) -> None:
         arguments += ["--input", str(output), "--regression-input", str(output)]
     result = runner.invoke(cli.app, arguments)
     assert result.exit_code == 2
-    assert "is a file" in Text.from_ansi(result.stderr).plain
+    assert "is a file" in plain_error(result.stderr)
     assert output.read_text(encoding="utf-8") == "keep me"
 
 
@@ -44,7 +48,7 @@ def test_input_must_be_a_file(tmp_path: Path, option: str) -> None:
     arguments[arguments.index(option) + 1] = str(tmp_path)
     result = runner.invoke(cli.app, arguments)
     assert result.exit_code == 2
-    assert "is a directory" in Text.from_ansi(result.stderr).plain
+    assert "is a directory" in plain_error(result.stderr)
 
 
 @pytest.mark.parametrize(
@@ -72,7 +76,7 @@ def test_run_reports_invalid_csv(tmp_path: Path, contents: str, message: str) ->
         ],
     )
     assert result.exit_code == 1
-    assert message in Text.from_ansi(result.stderr).plain
+    assert message in plain_error(result.stderr)
     assert "Traceback" not in result.stderr
     assert "Wrote" not in result.stdout
     assert not output.exists()
@@ -99,9 +103,7 @@ def test_run_reports_missing_regression_target_literally(tmp_path: Path) -> None
         ],
     )
     assert result.exit_code == 1
-    assert (
-        "regression target column '[bold]y[/bold]' not found" in Text.from_ansi(result.stderr).plain
-    )
+    assert "regression target column '[bold]y[/bold]' not found" in plain_error(result.stderr)
     assert "Traceback" not in result.stderr
     assert "Wrote" not in result.stdout
     assert not output.exists()
@@ -135,7 +137,7 @@ def test_expected_errors_use_stderr(
         arguments += ["--input", str(csv), "--regression-input", str(csv)]
     result = runner.invoke(cli.app, arguments)
     assert result.exit_code == 1
-    assert f"Error: {error}" in Text.from_ansi(result.stderr).plain
+    assert f"Error: {error}" in plain_error(result.stderr)
     assert "Traceback" not in result.stderr
     assert not result.stdout
 

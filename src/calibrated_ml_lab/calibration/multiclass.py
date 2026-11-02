@@ -6,19 +6,14 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.special import logsumexp, softmax
 
-from calibrated_ml_lab._validation import as_vector
+from calibrated_ml_lab._validation import as_vector, logit_matrix
 
 _LOG_TEMPERATURE_BOUNDS = (-3.0, 3.0)
 
 
 def _center_logits(logits: np.ndarray) -> np.ndarray:
     """Validate a real matrix and remove row offsets before temperature scaling."""
-    raw = np.asarray(logits)
-    if raw.ndim != 2 or raw.shape[0] == 0 or raw.shape[1] < 2:
-        raise ValueError(
-            "logits must have shape (n_samples, n_classes) with rows and at least 2 classes"
-        )
-    values = as_vector(raw.reshape(-1), "logits").reshape(raw.shape)
+    values = logit_matrix(logits)
     with np.errstate(over="ignore"):
         centered = values - values.max(axis=1, keepdims=True)
     minimum_temperature = np.exp(_LOG_TEMPERATURE_BOUNDS[0])

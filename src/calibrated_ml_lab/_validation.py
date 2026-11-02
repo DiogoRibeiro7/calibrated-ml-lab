@@ -64,6 +64,16 @@ def class_indices(values: np.ndarray, n_classes: int, name: str = "y_true") -> n
     return y.astype(int)
 
 
+def logit_matrix(values: np.ndarray) -> np.ndarray:
+    """Validate a nonempty finite real logit matrix without changing its offsets."""
+    raw = np.asarray(values)
+    if raw.ndim != 2 or raw.shape[0] == 0 or raw.shape[1] < 2:
+        raise ValueError(
+            "logits must have shape (n_samples, n_classes) with rows and at least 2 classes"
+        )
+    return as_vector(raw.reshape(-1), "logits").reshape(raw.shape)
+
+
 def probability_matrix(values: np.ndarray, name: str = "y_prob") -> np.ndarray:
     """Validate multiclass probability rows without clipping or renormalizing them."""
     raw = np.asarray(values)

@@ -112,6 +112,73 @@ temperature fitting, conformal calibration, and final testing, with a fixed seed
 no external downloads. Improved calibration-set loss does not guarantee improved
 test loss, ECE, class-wise calibration, or robustness under distribution shift.
 
+## Multiclass vector scaling
+
+`MulticlassVectorScaler` in `calibrated_ml_lab.calibration.vector` fits
+`softmax(logits * weights_ + bias_)`, with one real weight and one bias per class.
+This is the diagonal affine transformation described by
+[Guo et al. (2017), section 4.2](https://proceedings.mlr.press/v70/guo17a/guo17a.pdf).
+Weights are unconstrained and can be negative. The transformation can change class
+rankings and accuracy, so evaluate both discrimination and calibration afterwards.
+
+```python
+from calibrated_ml_lab.calibration.vector import MulticlassVectorScaler
+
+calibrator = MulticlassVectorScaler(l2=1e-3, max_iter=1000)
+calibrator.fit(calibration_logits, calibration_labels)
+test_probabilities = calibrator.transform(test_logits)
+```
+
+The implementation adds a penalty towards identity to control the extra flexibility:
+
+```text
+mean negative log likelihood + l2 / 2 * (sum((weights - 1)**2) + sum(bias**2))
+```
+
+`l2` must be a finite nonnegative real scalar; it defaults to `1e-3`. Zero disables
+the penalty. With no regularization, separable or missing-class data may have no
+finite optimum. `max_iter` must be a positive integer and defaults to 1000.
+Fitting starts deterministically from weights of one and biases of zero, using
+L-BFGS-B with an analytic gradient. The objective uses log-sum-exp without clipping
+probabilities. After a successful optimization, its objective is recomputed and
+compared with identity; identity wins ties or a worse candidate. Since the penalty
+is nonnegative and zero at identity, the accepted calibration-set NLL is no worse
+than uncalibrated NLL within numerical precision.
+
+Logits and labels follow the temperature scaler's shape, numeric-type, and class-index
+requirements. The input matrix must be nonempty, finite, and have at least two class
+columns. Numeric-looking strings, NaN, infinity, complex values, fractional labels,
+and mismatched row counts are rejected. Transform inputs must retain the fitted
+number and order of class columns. Absent classes and single-class fitting data
+are accepted, but cannot establish calibration for missing classes.
+
+Use the original model logits consistently. Subtracting row maxima **before** the
+diagonal affine map would change the method: unequal weights make it sensitive to
+common offsets in the original logits. The implementation subtracts row maxima
+only **after** applying the map to stabilize the softmax. Probabilities can round
+to zero or one. Arithmetic that cannot be represented safely raises `ValueError`
+for input/transform calculations or `RuntimeError` during optimization, rather
+than returning nonfinite probabilities. Nonconvergence also raises `RuntimeError`.
+Failed fits preserve previous weights, biases, and class count; a new instance
+remains unfitted.
+
+The reproducible `examples/run_vector_scaling.py` draws independent synthetic
+logit/label pairs from a fixed generator with known class-specific distortion.
+It fits temperature and vector scaling on 2000 rows and evaluates both on another
+1000 rows. The generator and regularization are fixed before evaluation; no model,
+method, or hyperparameter is selected using test outcomes. It reports accuracy,
+log loss, and confidence, top-label, and class-wise ECE for all three methods.
+In this example vector scaling improves log loss over temperature scaling, while
+its pooled confidence ECE is higher. Improvement in one metric does not imply
+improvement in all calibration summaries.
+
+For real data, train the underlying model separately, fit calibration parameters on
+held-out rows, and choose methods or regularization on a separate selection split
+or within development-data cross-validation. Leave final test data untouched until
+these choices are fixed. Extra flexibility can overfit small calibration samples;
+better fitting NLL does not guarantee better test NLL, ECE, or accuracy. If using
+conformal prediction, compute a fresh threshold after fixing this calibrator.
+
 ## Multiclass calibration diagnostics
 
 `calibrated_ml_lab.calibration.multiclass_metrics` evaluates probability matrices.

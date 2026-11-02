@@ -16,6 +16,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Isotonic regression calibration.
 - Temperature scaling.
 - Multiclass temperature scaling from logits (Python API).
+- Regularized multiclass vector scaling with class-specific weights and biases (Python API).
 - Multiclass confidence, top-label, and class-wise calibration diagnostics.
 - Split conformal classification.
 - Multiclass split-conformal prediction sets (Python API).
@@ -123,6 +124,21 @@ calibration does not guarantee better performance on unseen data.
 See [the multiclass API contract](docs/methodology.md#multiclass-temperature-scaling)
 for label mapping, numerical limits, and fitting assumptions. The `calibrated-lab run`
 reporting workflow currently handles binary classification.
+
+For class-specific corrections, use `MulticlassVectorScaler` from
+`calibrated_ml_lab.calibration.vector`. It fits `softmax(logits * weights_ + bias_)`
+with L2 regularization towards identity. It can change predicted classes and depends
+on the original logit offsets, so keep the model's logit convention consistent.
+
+```bash
+poetry run python examples/run_vector_scaling.py
+```
+
+This separate offline example compares uncalibrated, temperature-scaled, and
+vector-scaled predictions on independent synthetic calibration and test rows.
+It reports log loss, accuracy, and all three ECE summaries without selecting a
+method from test outcomes. See [vector scaling](docs/methodology.md#multiclass-vector-scaling)
+for the objective, options, and limitations.
 
 The functions in `calibrated_ml_lab.calibration.multiclass_metrics` accept class-index
 labels and a matrix of class probabilities:

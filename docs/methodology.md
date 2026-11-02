@@ -45,7 +45,7 @@ Uncertainty estimation asks how much confidence we should place in predictions, 
 - Isotonic regression: monotonic non-parametric calibration.
 - Temperature scaling: one-parameter logit rescaling to reduce negative log loss.
 
-All calibrators validate aligned, nonempty one-dimensional fitting arrays before
+The binary calibrators validate aligned, nonempty one-dimensional fitting arrays before
 training: labels must be exactly 0 or 1 and probabilities must be finite and in
 [0, 1]. Numeric-looking strings and other nonnumeric array elements are rejected
 before conversion; real numeric and boolean arrays remain supported, including
@@ -63,6 +63,53 @@ Isotonic regression uses original probabilities, including exact endpoints and
 distinct scores near 0 or 1. For valid probabilities outside the fitted score
 range, its prediction is the nearest fitted boundary value. Platt and temperature
 scaling retain clipping to [1e-12, 1 - 1e-12] for finite logit calculations.
+
+## Multiclass temperature scaling
+
+`MulticlassTemperatureScaler` in `calibrated_ml_lab.calibration.multiclass`
+fits a single positive temperature and returns `softmax(logits / T)` for each row.
+This follows [Guo et al. (2017)](https://proceedings.mlr.press/v70/guo17a.html).
+The scalar temperature adjusts confidence and mathematically preserves class order
+within each row; floating-point rounding can introduce ties between very close scores.
+
+```python
+from calibrated_ml_lab.calibration.multiclass import MulticlassTemperatureScaler
+
+calibrator = MulticlassTemperatureScaler().fit(calibration_logits, calibration_labels)
+test_probabilities = calibrator.transform(test_logits)
+```
+
+- Logits are finite real arrays with shape `(n_samples, n_classes)`, at least one
+  row, and at least two class columns. Pass model logits, not softmax probabilities.
+- Labels are a one-dimensional array of integer-valued class indices from `0` to
+  `n_classes - 1`, with one label per row. Map arbitrary class names to logit-column
+  indices first. Numeric-looking strings, fractional labels, NaN, and infinity
+  are rejected.
+- Transform inputs must retain the fitted number of columns and their order. The
+  scaler checks the number of columns; callers are responsible for their meaning.
+- Calibration labels may omit classes, including a single-class calibration sample.
+  The number of classes comes from the logits. Such data cannot establish calibration
+  for missing classes.
+
+Fit uses a bounded search over `log(T)` in `[-3, 3]`, approximately
+`T` in `[0.0498, 20.0855]`. It minimizes mean calibration negative log likelihood
+using log-sum-exp directly, without clipping probabilities inside the objective.
+The objective is divided by a fixed positive constant to stabilize optimization
+arithmetic for large logit gaps. Identity scaling and both temperature endpoints
+are evaluated as well; identity wins an exact loss tie. These choices keep fitted
+calibration loss no worse than the identity candidate within numerical precision.
+The bounds can limit the correction for severely miscalibrated scores.
+
+Row maxima are subtracted before scaling so large common offsets do not overflow.
+Logits whose differences cannot be represented safely across the temperature range
+raise `ValueError`. Returned probabilities may round to exactly zero or one.
+Invalid inputs and optimizer failures preserve a previous successful fit, including
+its class count. Transforming an unfitted instance raises `RuntimeError`.
+
+Fit the model, fit the calibrator, and evaluate final predictions on separate data.
+The example in `examples/run_multiclass.py` uses 60/20/20 splits and a fixed seed,
+with no external downloads. Improved calibration-set loss does not guarantee improved
+test loss, ECE, class-wise calibration, or robustness under distribution shift.
 
 ## Implemented conformal methods
 

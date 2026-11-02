@@ -38,7 +38,8 @@
 
 ## v0.2 — Multi-class calibration
 
-- [ ] Extend temperature scaling to multi-class softmax outputs.
+- [x] Add multi-class temperature scaling for softmax logits, with a Python API
+  and a reproducible example using separate calibration and test data.
 - [ ] Add vector scaling and matrix scaling.
 - [ ] Add top-label calibration diagnostics.
 - [ ] Add class-wise ECE.

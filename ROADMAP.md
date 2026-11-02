@@ -60,7 +60,8 @@
   empty-set summaries, and separate model-training, calibration, and test rows.
 - [x] Add empirical interval calibration tables and plots across nominal coverage
   levels, preserving empty and unbounded sets with an offline PNG/CSV example.
-- [ ] Add conditional coverage diagnostics by feature bins.
+- [x] Add empirical interval coverage diagnostics by fixed feature bins, with counts,
+  widths, coverage gaps, explicit empty bins, and an offline CSV example.
 
 ## v0.4 — Model-agnostic uncertainty
 

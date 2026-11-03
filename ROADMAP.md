@@ -66,7 +66,8 @@
 
 ## v0.4 — Model-agnostic uncertainty
 
-- [ ] Add jackknife-plus intervals.
+- [x] Add jackknife-plus intervals with genuine leave-one-out fits, paired residuals,
+  exact finite-sample ranks, infinite small-sample bounds, and an offline evaluation.
 - [ ] Add ensemble uncertainty decomposition.
 - [ ] Add epistemic vs aleatoric uncertainty examples.
 - [ ] Add bootstrap confidence intervals for calibration metrics.

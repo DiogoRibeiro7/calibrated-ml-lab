@@ -700,6 +700,96 @@ and edges, or choose them using separate development data. Selecting bins or
 methods after inspecting test results requires fresh evaluation data. A marginal
 conformal guarantee does not ensure coverage in every bin or at every feature value.
 
+## Jackknife-plus prediction intervals
+
+`JackknifePlusRegressor` in `calibrated_ml_lab.conformal.jackknife` implements
+jackknife-plus. For each training row `i`, fit `f_-i` without that row and calculate
+`r_i = abs(y_i - f_-i(x_i))`. At query `x`, form paired candidates
+`f_-i(x) - r_i` and `f_-i(x) + r_i`. Select these one-based order statistics:
+
+- Lower endpoint: `floor((n + 1) * alpha)`-th lower candidate.
+- Upper endpoint: `ceil((n + 1) * (1 - alpha))`-th upper candidate.
+
+This is equation (9) of [Barber, Candès, Ramdas, and Tibshirani](https://arxiv.org/html/1905.02928v3#S2).
+Theorem 1 gives a marginal coverage lower bound of `1 - 2 * alpha`, assuming
+exchangeable training/test observations and a learner invariant to training-row
+order. The conventional nominal target is `1 - alpha`. Thus `alpha=0.1` targets
+90% but has an 80% general bound; use `alpha=0.05` for a 90% bound under those
+assumptions. This is not a guarantee for each test sample or feature group.
+
+```python
+from sklearn.linear_model import Ridge
+from calibrated_ml_lab.conformal.jackknife import JackknifePlusRegressor
+from calibrated_ml_lab.conformal.quantile import conformalized_quantile_metrics
+
+model = JackknifePlusRegressor(Ridge(alpha=1.0), alpha=0.1).fit(train_x, train_y)
+predictions = model.predict(test_x)
+lower, upper = model.predict_interval(test_x)
+summary = conformalized_quantile_metrics(test_y, lower, upper)
+```
+
+The wrapper fits `n + 1` cloned estimators: `n` leave-one-out models and a full-data
+model used only for point prediction. It defaults to `LinearRegression`. An
+estimator must be a cloneable scikit-learn `BaseEstimator` tagged as a regressor,
+return one finite prediction per query row, and support fitting `n - 1` rows.
+Feature matrices must be dense, finite, and numeric. Targets are finite real
+vectors. Training requires at least two aligned rows and one feature column.
+Pandas row indices and column names do not affect positional alignment.
+
+The original estimator and input arrays are preserved. Preprocessing inside a
+pipeline is refitted separately for every omitted row, including scalers and
+feature selection. Fix hyperparameters in advance or tune on separate development
+data. Preprocessing or tuning on all training responses before leave-one-out
+fitting can leak the omitted response. This implementation needs no dedicated
+conformal-calibration split, but test responses must remain reserved for evaluation.
+
+The required symmetry concerns the complete fitting procedure, including
+preprocessing. Setting `random_state` does not make an order-dependent learner
+permutation invariant. The wrapper sets every exposed estimator `random_state`
+parameter, including nested pipeline options, to its own seed on each clone.
+This controls reproducibility for compatible learners; users must still assess
+the symmetry assumption for their chosen algorithm. Third-party random sources
+not exposed through these parameters need separate controls.
+
+`alpha` is restricted to `0 < alpha < 0.5`, keeping a positive general coverage
+bound and ordered endpoints. `random_state` is an integer from zero through
+`2**32 - 1` (default 42). Fitted `alpha_` remains in effect until a successful
+refit. Validation failures, numerical failures, or a failed later omitted fit
+preserve the entire previous fitted state. Fitted attributes `estimator_`,
+`loo_estimators_`, `loo_residuals_`, `n_features_in_`, and `alpha_` are available
+for inspection and should be treated as read-only. Leave-one-out model `i` and
+residual `i` correspond to the same original training row.
+
+For externally computed leave-one-out results, the standalone
+`jackknife_plus_intervals(loo_predictions, loo_residuals, alpha=0.1)` accepts a
+finite matrix with shape `(n_training_rows, n_query_rows)` and a finite nonnegative
+residual vector. At least two training rows and one query row are required. It
+validates shapes and values but cannot verify that the supplied fits truly omit
+their corresponding rows, or that model/residual pairing is correct.
+
+Ranks use order statistics without quantile interpolation. Floating-point rank
+boundaries are compared with the represented values `k / (n + 1)`, preserving
+the distinction between a boundary and its adjacent floating-point values. When
+`alpha < 1 / (n + 1)`, both endpoints are missing and the result is `(-inf, inf)`.
+The code never caps that interval to the observed extrema. Finite candidate
+arithmetic overflowing outward also retains infinite endpoints. Nonfinite model
+predictions and overflow when computing a held-out residual are rejected.
+
+Prediction evaluates all `n` omitted models and uses memory proportional to
+`n * n_query_rows`. Queries can be processed in batches; predictions agree up to
+the learner's numerical roundoff. There is no parallel fitting, automatic
+subsampling, or CV+ approximation. Choose training sizes and learners with the
+cost of `n + 1` complete fits in mind. The wrapper itself does not implement the
+full scikit-learn estimator interface.
+
+The offline `examples/run_jackknife_plus.py` fixes seed 42, 200 training rows,
+2000 untouched test rows, four feature bins, and error levels 0.1 and 0.05. The
+linear mean has feature-dependent noise. The example prints nominal targets,
+general coverage bounds, and empirical coverage separately, and exports a CSV
+with feature-bin counts and widths. In this seeded run, empirical coverage is
+88.9% and 96.15%, respectively. These observations do not establish conditional
+coverage or determine the best error level on new data.
+
 ## Multiclass conformal prediction
 
 `calibrated_ml_lab.conformal.multiclass` implements split conformal prediction with

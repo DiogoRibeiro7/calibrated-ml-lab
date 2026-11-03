@@ -527,6 +527,81 @@ does not prove conditional coverage or identify the best method. Choose models,
 levels, and tuning settings on development data, then use this plot for final
 evaluation. A method selected from this test plot needs a new independent evaluation.
 
+## Interval coverage by feature bins
+
+Overall coverage can hide undercoverage in a feature region. For example, covering
+nine responses in one region and missing the only response in another gives 90%
+overall coverage, but zero empirical coverage in the second region.
+`interval_coverage_by_feature` in `calibrated_ml_lab.uncertainty.intervals` reports
+coverage and widths within a fixed partition of a numeric feature:
+
+```python
+import numpy as np
+from calibrated_ml_lab.uncertainty.intervals import interval_coverage_by_feature
+
+# Fix these edges from domain knowledge or training data before evaluation.
+edges = np.array([-np.inf, -1.0, 0.0, 1.0, np.inf])
+by_feature = interval_coverage_by_feature(
+    test_y, lower, upper, test_x[:, 0], edges, nominal_coverage=0.9
+)
+```
+
+Responses, bounds, and feature values must be nonempty one-dimensional arrays of
+equal length. Alignment is positional, including Pandas inputs; all rows are
+validated before grouping. Responses and feature values must be finite. Bounds
+follow the [CQR set convention](#conformalized-quantile-regression): reversed bounds
+denote empty prediction sets, equal finite endpoints are singletons, and infinite
+bounds are allowed for unbounded sets. NaN and singleton infinities are rejected.
+Empty prediction sets contribute zero coverage and zero width within their bins.
+
+Edges must be real numeric values, strictly increasing after conversion to float,
+with at least two entries. Infinite outer endpoints are allowed. Each bin includes
+its left edge and excludes its right edge, except the final bin includes both.
+Internal ties go to the bin on their right. Every feature value must lie between
+the outer edges: out-of-range rows cause an error, rather than being dropped or
+clipped. Infinite outer edges make the partition exhaustive for finite values.
+Constant features are supported; duplicate edges from tied quantiles must be
+resolved before calling the function. No bins are learned or merged automatically.
+
+The table has one row for every bin, in edge order:
+
+| Column | Meaning |
+| --- | --- |
+| `bin_index`, `bin_lower`, `bin_upper` | Zero-based bin index and its supplied boundaries. |
+| `right_closed` | Whether the right endpoint is included; true only for the final bin. |
+| `count`, `fraction` | Number of evaluation rows in the bin and its share of all rows. |
+| `covered_count` | Number of responses covered in the bin. |
+| `nominal_coverage` | Required reference target, strictly between zero and one. |
+| `coverage`, `coverage_gap` | Empirical coverage and empirical minus nominal coverage. |
+| `average_width`, `median_width`, `min_width`, `max_width` | Width summaries within the bin. |
+| `empty_set_rate` | Fraction of the bin's prediction sets that are empty. |
+
+An empty **bin** has zero `count`, `covered_count`, and `fraction`, but NaN for
+coverage, coverage gap, all widths, and empty-set rate. It provides no evidence
+about coverage. This differs from a populated bin containing only empty
+prediction sets: its coverage and widths are zero and its empty-set rate is one.
+CSV exports represent undefined statistics as blank cells.
+
+Bin counts sum to the evaluation count. Summing covered counts and dividing by
+the total count reconstructs overall coverage; averaging bin coverage without
+count weights does not. Ignore empty bins when weighting coverage, average width,
+or empty-set rate. Medians generally cannot be combined by taking a weighted
+average of bin medians. Different feature partitions describe the same rows, so
+their counts must not be pooled together.
+
+The offline `examples/run_feature_coverage.py` uses seed 42, 2000 training rows,
+1000 separate conformal-calibration rows, and 1000 test rows. Before fitting it
+fixes the 90% target and edges `[-inf, -1, 0, 1, inf]`. It exports a CSV comparing
+quantile and conformalized quantile intervals in all four bins and prints JSON
+with the corresponding overall metrics. No fitting or bin selection uses test labels.
+
+These are descriptive feature-conditional diagnostics, not conditional coverage
+guarantees. Small bins have noisy observed rates; this table supplies counts but
+no uncertainty intervals or multiple-comparison correction. Prespecify features
+and edges, or choose them using separate development data. Selecting bins or
+methods after inspecting test results requires fresh evaluation data. A marginal
+conformal guarantee does not ensure coverage in every bin or at every feature value.
+
 ## Multiclass conformal prediction
 
 `calibrated_ml_lab.conformal.multiclass` implements split conformal prediction with

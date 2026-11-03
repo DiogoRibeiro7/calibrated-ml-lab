@@ -26,6 +26,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Conformalized quantile regression with signed corrections and explicit empty-set diagnostics.
 - Coverage and interval-width diagnostics.
 - Interval calibration tables and plots across nominal coverage levels.
+- Empirical interval coverage by fixed feature bins, including counts and empty bins.
 - Empirical multiclass coverage by true class and named data slices.
 - Decision-threshold evaluation before and after calibration.
 - Markdown reports and plots.
@@ -237,6 +238,23 @@ quantile and conformalized quantile intervals at five preset levels, using separ
 training, calibration, and test rows. Review the widths alongside the coverage
 curve. See [interval calibration diagnostics](docs/methodology.md#interval-calibration-across-nominal-levels)
 for input conventions and interpretation.
+
+## Interval coverage by feature
+
+Use `interval_coverage_by_feature` from `calibrated_ml_lab.uncertainty.intervals`
+to inspect coverage, widths, and coverage gaps within fixed numeric feature bins.
+It reports bin counts and preserves empty bins with undefined statistics. Every
+evaluation row must fall within the supplied edges; rows are never silently dropped.
+
+```bash
+poetry run python examples/run_feature_coverage.py --output-dir .artifacts/feature_coverage
+```
+
+The example exports `feature_coverage.csv` for quantile and conformalized quantile
+intervals at a 90% target, alongside overall summaries printed as JSON. Bins are
+fixed before fitting and evaluation. These are descriptive diagnostics, without
+conditional coverage guarantees. See [feature-bin coverage](docs/methodology.md#interval-coverage-by-feature-bins)
+for boundary rules, empty-bin handling, and interpretation.
 
 ## Main outputs
 

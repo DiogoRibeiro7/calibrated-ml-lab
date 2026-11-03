@@ -22,6 +22,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Split conformal classification.
 - Multiclass split-conformal prediction sets (Python API).
 - Split conformal regression intervals.
+- Jackknife-plus intervals from paired leave-one-out predictions and residuals.
 - Gradient-boosted quantile regression intervals with feature-dependent widths (Python API).
 - Residual-bootstrap prediction intervals with refit variation and future-observation noise.
 - Conformalized quantile regression with signed corrections and explicit empty-set diagnostics.
@@ -276,6 +277,24 @@ intervals at a 90% target, alongside overall summaries printed as JSON. Bins are
 fixed before fitting and evaluation. These are descriptive diagnostics, without
 conditional coverage guarantees. See [feature-bin coverage](docs/methodology.md#interval-coverage-by-feature-bins)
 for boundary rules, empty-bin handling, and interpretation.
+
+## Jackknife-plus prediction intervals
+
+`JackknifePlusRegressor` in `calibrated_ml_lab.conformal.jackknife` fits one model
+per omitted training row. It combines each model's test predictions with that
+model's held-out absolute residual, using exact finite-sample ranks. The default
+learner is linear regression; compatible scikit-learn regressors and numeric
+pipelines can be supplied. A full-data model supplies `predict` point estimates.
+
+```bash
+poetry run python examples/run_jackknife_plus.py --output-dir .artifacts/jackknife_plus
+```
+
+The example prints overall metrics and exports `jackknife_plus_coverage.csv` by
+feature bin at two preset error levels. For `alpha=0.1`, the nominal target is
+90%, while the general marginal coverage bound is 80% under exchangeability and
+a learner invariant to training-row order. See [jackknife-plus](docs/methodology.md#jackknife-plus-prediction-intervals)
+for assumptions, exact ranks, computational cost, and small-sample infinite bounds.
 
 ## Main outputs
 

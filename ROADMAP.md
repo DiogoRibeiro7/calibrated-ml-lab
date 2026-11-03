@@ -72,7 +72,8 @@
   and variances, with equal mixture weights and offline CSV/PNG diagnostics.
 - [x] Add a controlled epistemic vs aleatoric uncertainty example with known-noise
   Bayesian regression, nested training sizes, and offline CSV/PNG diagnostics.
-- [ ] Add bootstrap confidence intervals for calibration metrics.
+- [x] Add paired percentile-bootstrap intervals for binary and multiclass calibration
+  metrics, with fixed predictions, reproducible draws, and offline CSV diagnostics.
 
 ## v0.5 — Monitoring integration
 

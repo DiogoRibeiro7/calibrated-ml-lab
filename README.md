@@ -23,6 +23,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Multiclass split-conformal prediction sets (Python API).
 - Split conformal regression intervals.
 - Gradient-boosted quantile regression intervals with feature-dependent widths (Python API).
+- Residual-bootstrap prediction intervals with refit variation and future-observation noise.
 - Conformalized quantile regression with signed corrections and explicit empty-set diagnostics.
 - Coverage and interval-width diagnostics.
 - Interval calibration tables and plots across nominal coverage levels.
@@ -220,6 +221,26 @@ This example uses disjoint model-training, conformal-calibration, and test data,
 and compares base and corrected coverage and widths. See
 [conformalized quantile regression](docs/methodology.md#conformalized-quantile-regression)
 for the exact finite-sample rule, empty-set handling, and marginal coverage assumptions.
+
+## Bootstrap prediction intervals
+
+`ResidualBootstrapRegressor` in `calibrated_ml_lab.models.bootstrap` fits a base
+regressor and clones it on resampled, centered training residuals. Its prediction
+intervals include a separate residual draw for future-observation noise. The default
+model is linear regression; compatible scikit-learn regressors and numeric pipelines
+can be supplied. `predict` returns the base model's point predictions and
+`predict_interval` returns lower and upper bounds.
+
+```bash
+poetry run python examples/run_bootstrap_regression.py --output-dir .artifacts/bootstrap_regression
+```
+
+The example evaluates constant and feature-dependent noise on separate test rows,
+prints overall metrics, and exports `bootstrap_coverage.csv` by feature bin. Pooled
+residuals assume the same additive error distribution across features. They can
+undercover with heteroskedasticity, small samples, or overfitting; bootstrap intervals
+have no finite-sample coverage guarantee. See [residual bootstrap](docs/methodology.md#residual-bootstrap-prediction-intervals)
+for the algorithm, reproducibility contract, and limitations.
 
 ## Interval calibration curves
 

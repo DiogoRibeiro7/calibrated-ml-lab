@@ -1,5 +1,17 @@
 # Roadmap
 
+## Current status — 2026-11-03
+
+- The immediate engineering priorities and feature milestones v0.1–v0.4 are complete.
+- Monitoring work has started: reference/production calibration comparisons shipped
+  in [PR #22](https://github.com/DiogoRibeiro7/calibrated-ml-lab/pull/22).
+- Next development task: calibration drift metrics, followed by alert rules and
+  slice-level monitoring. Existing period comparisons report descriptive changes.
+- Python 3.11 and 3.12 CI passes all 1531 tests, including the offline examples.
+- The milestone labels below describe feature scope, not published releases.
+  Package metadata remains at `0.1.0`; no GitHub release or published Zenodo record
+  has been identified. Release and archival preparation is tracked separately below.
+
 ## Immediate engineering priorities
 
 - [x] Establish reproducible dependencies and green lint, formatting, type, test,
@@ -97,3 +109,16 @@
 - [ ] More examples for healthcare, fraud, churn, and credit risk.
 - [ ] CI with coverage gate.
 - [ ] Versioned releases.
+
+## First release and Zenodo archive
+
+- [ ] Choose the initial release scope and version, and write release notes covering
+  implemented APIs, supported Python versions, examples, and known limitations.
+- [ ] Align package and citation versions, release date, and descriptive software title.
+- [ ] Configure Zenodo archiving for the GitHub repository and prepare the software
+  metadata, including authors, license, description, and repository URL.
+- [ ] Verify the release commit passes Python 3.11–3.12 CI, builds installable
+  distributions, and reproduces the documented offline examples.
+- [ ] Publish the first tagged GitHub release and verify its Zenodo archive and DOI.
+- [ ] Add the DOI to `CITATION.cff` and the README, and document the distinction
+  between the all-versions DOI and the DOI for the archived release.

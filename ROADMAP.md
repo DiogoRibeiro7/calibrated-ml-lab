@@ -68,7 +68,8 @@
 
 - [x] Add jackknife-plus intervals with genuine leave-one-out fits, paired residuals,
   exact finite-sample ranks, infinite small-sample bounds, and an offline evaluation.
-- [ ] Add ensemble uncertainty decomposition.
+- [x] Add regression ensemble variance decomposition from member predictive means
+  and variances, with equal mixture weights and offline CSV/PNG diagnostics.
 - [ ] Add epistemic vs aleatoric uncertainty examples.
 - [ ] Add bootstrap confidence intervals for calibration metrics.
 

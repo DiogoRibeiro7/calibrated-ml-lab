@@ -23,6 +23,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Multiclass split-conformal prediction sets (Python API).
 - Split conformal regression intervals.
 - Jackknife-plus intervals from paired leave-one-out predictions and residuals.
+- Regression ensemble variance decomposition into within-model and between-model components.
 - Gradient-boosted quantile regression intervals with feature-dependent widths (Python API).
 - Residual-bootstrap prediction intervals with refit variation and future-observation noise.
 - Conformalized quantile regression with signed corrections and explicit empty-set diagnostics.
@@ -295,6 +296,25 @@ feature bin at two preset error levels. For `alpha=0.1`, the nominal target is
 90%, while the general marginal coverage bound is 80% under exchangeability and
 a learner invariant to training-row order. See [jackknife-plus](docs/methodology.md#jackknife-plus-prediction-intervals)
 for assumptions, exact ranks, computational cost, and small-sample infinite bounds.
+
+## Ensemble uncertainty decomposition
+
+`ensemble_regression_summary` in `calibrated_ml_lab.uncertainty.ensemble` combines
+equally weighted member predictive means and variances. It reports the mixture
+mean, within-model variance, disagreement between member means, total variance,
+and total standard deviation. Both inputs are required and use shape
+`(n_members, n_query_rows)`.
+
+```bash
+poetry run python examples/run_ensemble_uncertainty.py --output-dir .artifacts/ensemble_uncertainty
+```
+
+The example exports test predictions, a query-grid CSV, and a stacked variance
+plot for 40 linear models fitted on resampled training rows. It also prints test
+MSE and average predicted variance. The decomposition describes the supplied
+predictive mixture; its components do not establish calibrated uncertainty.
+See [ensemble moments](docs/methodology.md#regression-ensemble-variance-decomposition)
+for formulas, input conventions, and interpretation.
 
 ## Main outputs
 

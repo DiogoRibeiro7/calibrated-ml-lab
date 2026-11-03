@@ -790,6 +790,90 @@ with feature-bin counts and widths. In this seeded run, empirical coverage is
 88.9% and 96.15%, respectively. These observations do not establish conditional
 coverage or determine the best error level on new data.
 
+## Regression ensemble variance decomposition
+
+`ensemble_regression_summary` in `calibrated_ml_lab.uncertainty.ensemble` summarizes
+an equally weighted mixture of regression predictive distributions. Each member
+supplies a predictive mean `mu_m(x)` and predictive variance `v_m(x)` at each query.
+The law of total variance gives:
+
+```text
+mean_prediction(x)        = mean_m(mu_m(x))
+within_model_variance(x)  = mean_m(v_m(x))
+between_model_variance(x) = mean_m((mu_m(x) - mean_prediction(x))**2)
+total_variance(x)         = within_model_variance(x) + between_model_variance(x)
+total_std(x)              = sqrt(total_variance(x))
+```
+
+These are the mixture moments used for regression in
+[Lakshminarayanan, Pritzel, and Blundell, section 2.4](https://arxiv.org/pdf/1612.01474).
+Computing the moments does not require Gaussian components. In particular, the
+resulting mixture need not be Gaussian, and these summaries alone do not define
+prediction quantiles or justify a Gaussian interval.
+
+```python
+import numpy as np
+from calibrated_ml_lab.uncertainty.ensemble import ensemble_regression_summary
+
+# Two members, each predicting the same two query rows.
+means = np.array([[0.0, 10.0], [2.0, 14.0]])
+variances = np.array([[1.0, 4.0], [9.0, 0.0]])
+summary = ensemble_regression_summary(means, variances)
+# mean_prediction: [1, 12]; within: [5, 2]; between: [1, 4]; total: [6, 6].
+```
+
+Both inputs must be nonempty finite real matrices with identical shape
+`(n_members, n_query_rows)`. Variances must be nonnegative and expressed in squared
+target units, not standard deviations. Scalars, vectors, implicit broadcasting,
+numeric strings, complex values, missing values, and infinite inputs are rejected.
+Pandas inputs are aligned positionally; member rows and query columns must already
+match. The function returns a DataFrame with one row per query, preserving query
+order and using a fresh integer index. Inputs are not modified.
+
+The five columns shown above are the complete output schema. All members receive
+equal mixture weights; custom weights and multi-output covariance matrices are
+not supported. The between-model term uses denominator `M`, not `M - 1`, because
+it is the variance of this finite mixture. It is not the sampling variance or
+standard error of an ensemble average, and is not divided by `M` again. Replicating
+every member equally leaves all mixture moments unchanged.
+
+Predictive variances are mandatory. Passing explicit zeros means the component
+distributions are point masses; it does not mean observation noise is unknown or
+has been estimated to vanish. A single member can have nonzero predictive variance
+despite zero disagreement. Identical deterministic members yield zero total
+variance even if all predictions share a large bias.
+
+The implementation centers and scales calculations to reduce cancellation and
+intermediate overflow, including small disagreements around large common offsets.
+Normal floating-point roundoff still applies. Output variances beyond the float
+range become positive infinity. `total_std` is calculated without first squaring
+the disagreement scale, so it can remain finite even when `total_variance`
+overflows. Negative input variances are rejected rather than clipped.
+
+Within-model predictive variance is often interpreted as an aleatoric component,
+and disagreement as an epistemic component, but that interpretation depends on
+how the members and their variances were obtained. Supplied predictive variances
+can already contain parameter uncertainty; correlated or similarly misspecified
+members can agree while being wrong. This API reports mixture components without
+claiming to recover the true uncertainty sources, a Bayesian posterior, calibration,
+or coverage guarantees. Fit models and choose their settings using training or
+development data; evaluate predictive performance on untouched responses.
+
+The offline `examples/run_ensemble_uncertainty.py` fixes seed 42, draws 80 training
+rows from a linear model with constant noise, and fits 40 linear regressors on
+bootstrap resamples. Each component uses its own training residual sum of squares
+divided by `n - 2` as a constant predictive noise variance. This is an illustrative
+homoskedastic plug-in estimate, not a general variance-learning procedure. Test
+labels are used only to evaluate 1000 separate test observations.
+
+The example exports `ensemble_test_predictions.csv`, `ensemble_uncertainty.csv`
+on a grid extending beyond the training range, and `ensemble_uncertainty.png`.
+The PNG stacks within-model and between-model variance, with the generating
+training range marked. In the seeded run, test MSE is about 0.681 and average
+predicted total variance is about 0.577. The mismatch illustrates why computing
+the decomposition does not establish calibration; agreement between those two
+aggregate statistics would not establish conditional calibration either.
+
 ## Multiclass conformal prediction
 
 `calibrated_ml_lab.conformal.multiclass` implements split conformal prediction with

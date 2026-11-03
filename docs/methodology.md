@@ -363,6 +363,104 @@ distribution shift, and inaccurate tail estimates can reduce coverage.
 [Conformalized quantile regression](#conformalized-quantile-regression) adds an
 independent calibration step after the quantile models are fixed.
 
+## Residual bootstrap prediction intervals
+
+`ResidualBootstrapRegressor` in `calibrated_ml_lab.models.bootstrap` implements a
+fixed-design residual bootstrap. It uses resampled residuals both to refit the
+regressor and to represent noise in a future response. Percentiles of refitted
+mean predictions alone describe a different source of variation and can be much
+narrower than prediction intervals. Adding residual noise follows the construction
+described in the [nlstools prediction-bootstrap documentation](https://search.r-project.org/CRAN/refmans/nlstools/html/nlsBootpredict.html).
+
+Given training rows `(X, y)`, fit a base regressor `f`. Center its residuals as
+`r_i = y_i - f(x_i) - mean(y - f(X))`. For each of `B = n_bootstrap` replicates:
+
+1. Draw `n` centered residuals with replacement and form `y* = f(X) + r*` at the
+   original training features. Fit a fresh clone `f_b` to `(X, y*)`.
+2. Draw another residual `e_b` independently from the same centered pool.
+3. At query `x`, form the predictive draw `f_b(x) + e_b`.
+
+Return the `alpha / 2` and `1 - alpha / 2` percentiles across the `B` predictive
+draws, using NumPy's `method="linear"` interpolation. These are approximate
+pointwise prediction intervals, without a conformal rank correction. The point
+prediction returned by `predict` is `f(x)`, not the bootstrap median.
+
+```python
+from sklearn.linear_model import Ridge
+from calibrated_ml_lab.models.bootstrap import ResidualBootstrapRegressor
+from calibrated_ml_lab.conformal.quantile import conformalized_quantile_metrics
+
+model = ResidualBootstrapRegressor(
+    Ridge(alpha=1.0), alpha=0.1, n_bootstrap=1000, random_state=42
+).fit(train_x, train_y)
+predictions = model.predict(test_x)
+lower, upper = model.predict_interval(test_x)
+summary = conformalized_quantile_metrics(test_y, lower, upper)
+```
+
+Omitting the estimator uses ordinary `LinearRegression`. Supply a cloneable
+scikit-learn regressor instance (a `BaseEstimator` tagged as a regressor), including
+a pipeline ending in a regressor. Its clones must fit scalar responses and return
+one finite prediction per row. The wrapper accepts dense finite numeric feature
+matrices and real target vectors, with at least two training rows. It does not
+accept sparse, categorical, missing, or multi-output data. An estimator may impose
+additional numeric restrictions. Pandas inputs use positional columns and rows;
+column names and indices do not control alignment.
+
+The supplied estimator is treated as a template; any previous fit is discarded
+in its clones, while the original estimator and input arrays are preserved.
+Clone implementations that return the original object are rejected. Preprocessing
+inside a supplied pipeline is refitted with each clone. Tune its settings using
+development data, and reserve independent test responses for final evaluation.
+This wrapper implements `fit`, `predict`, and `predict_interval`, without exposing
+the full scikit-learn estimator interface itself.
+
+`alpha` must yield distinct representable quantile levels strictly between zero
+and one. `n_bootstrap` is an integer at least two (default 200), and `random_state`
+is an integer from zero to `2**32 - 1` (default 42). A small replicate count has
+substantial Monte Carlo error, especially in the tails; increase it and assess
+stability on development data. Fitting stores `B + 1` estimators, and interval
+prediction uses memory proportional to `B` times the query batch size.
+
+The seed controls residual sampling and is assigned to **all exposed estimator
+`random_state` parameters**, including nested pipeline parameters and any explicit
+seeds on the template. Every clone receives the same estimator seed, so changes
+between clones come from resampled targets. This makes fits reproducible for
+estimators whose randomness is controlled through those parameters; third-party
+estimators with additional random sources may require their own controls.
+
+The independent noise draws are stored at fit time and reused across query rows.
+Prediction does not consume random numbers, and pointwise results are unchanged
+by repeated calls, row ordering, or batching apart from numerical roundoff in the
+underlying estimator. Shared residual draws do **not** define independent joint
+future observations or a simultaneous prediction band. Fitted options remain in
+effect until another successful fit. Invalid data, numerical failures, or failures
+in a later bootstrap clone leave the previous fitted state intact.
+
+The model exposes `estimator_`, `bootstrap_estimators_`, centered `residuals_`,
+stored `noise_draws_`, `n_features_in_`, `alpha_`, and `quantiles_` for inspection.
+Treat fitted attributes as read-only. Constant targets or an interpolating fit
+can yield zero residuals and collapsed intervals; the implementation retains this
+result rather than inserting an arbitrary noise floor.
+
+Pooled residual resampling assumes an adequate mean model and IID additive errors
+with a common distribution independent of features. These are raw centered fitted
+residuals, without leverage or degrees-of-freedom adjustment. They may understate
+noise in small samples or with flexible models. Increasing `B` reduces simulation
+error but does not correct overfitting, model bias, heteroskedasticity, dependent
+rows, or distribution shift. There is no finite-sample, marginal, or conditional
+coverage guarantee. Report empirical coverage and widths on untouched data, and
+inspect feature bins even when overall coverage is near the target.
+
+The offline `examples/run_bootstrap_regression.py` fixes seed 42, the 90% target,
+500 bootstrap replicates, and feature edges `[-inf, -1, 0, 1, inf]`. It uses 1000
+training rows and 2000 separate test rows for each of two linear-mean scenarios.
+With constant noise, observed coverage is 90.2%. With feature-dependent noise,
+overall coverage is 90.95%, but coverage in the highest feature bin is 76.56%
+(512 rows). The CSV and overall JSON summaries expose this failure of the pooled
+noise assumption. These seeded results illustrate the method, not expected
+coverage on other data. The bootstrap example needs no conformal-calibration set.
+
 ## Implemented conformal methods
 
 - Split conformal classification using nonconformity score `1 - p_true`.

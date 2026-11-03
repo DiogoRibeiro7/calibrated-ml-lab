@@ -55,7 +55,8 @@
 
 - [x] Add gradient-boosted quantile regression intervals with raw crossing diagnostics,
   ordered bounds, and an offline evaluation on independent heteroskedastic test rows.
-- [ ] Add bootstrap prediction intervals.
+- [x] Add fixed-design residual-bootstrap prediction intervals with cloned regressors,
+  future-observation noise, reproducible prediction, and an offline coverage example.
 - [x] Add conformalized quantile regression with exact signed score thresholds,
   empty-set summaries, and separate model-training, calibration, and test rows.
 - [x] Add empirical interval calibration tables and plots across nominal coverage

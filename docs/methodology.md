@@ -154,6 +154,93 @@ In the seeded binary example, temperature scaling lowers test log loss from abou
 diagnostic need not imply improvement in another; the individual intervals do
 not by themselves establish a significant difference between predictors.
 
+## Reference and production period comparisons
+
+`calibrated_ml_lab.monitoring.calibration` evaluates fixed predictions on two
+separate labeled populations. Both periods use the same positive integer
+`n_bins` (default 10) and equal-width bin edges over `[0, 1]`. The functions
+reuse the binary and multiclass metrics defined in this document.
+
+| Function | Metrics and context |
+|---|---|
+| `compare_binary_calibration` | Brier score, log loss, ECE, MCE, ROC AUC, positive-label frequency, mean predicted probability |
+| `compare_multiclass_calibration` | Confidence ECE, top-label ECE, macro classwise ECE, accuracy, mean maximum confidence, one label frequency per class |
+
+```python
+import numpy as np
+from calibrated_ml_lab.monitoring.calibration import compare_binary_calibration
+
+comparison = compare_binary_calibration(
+    reference_y=np.array([0, 1]),
+    reference_prob=np.array([0.25, 0.75]),
+    production_y=np.array([0, 0, 1, 1]),
+    production_prob=np.array([0.1, 0.6, 0.8, 0.9]),
+    n_bins=2,
+)
+```
+
+Both APIs return a DataFrame with the following columns:
+
+| Column | Meaning |
+|---|---|
+| `metric` | Metric or sample-summary name |
+| `category` | `calibration`, `probabilistic_quality`, `discrimination`, `predictive_performance`, or `sample_summary` |
+| `reference`, `production` | Independently computed values for each period |
+| `change` | `production - reference`, in the metric's original units |
+| `reference_count`, `production_count` | Number of labeled evaluation rows in each period |
+| `n_bins` | Common equal-width bin count |
+
+ECE/MCE rows describe calibration. Brier score and log loss describe overall
+probabilistic quality; ROC AUC describes discrimination; accuracy describes
+predictive performance. Positive changes in error metrics indicate worse observed
+values, while positive changes in AUC or accuracy indicate better observed values.
+Class frequencies and mean probabilities have no universal improvement direction.
+The small example above has lower production ECE (0.25 to 0.10) but higher Brier
+score (0.0625 to 0.105), illustrating why the categories stay separate.
+
+Each period must contain at least one row, and sizes may differ. Labels and
+probabilities align by position within a period, including Pandas inputs; periods
+are neither paired nor pooled. Binary inputs follow the finite 0/1-label and
+`[0, 1]`-probability rules above. Single-class ROC AUC is NaN, making its change
+NaN too. Multiclass inputs require integer class indices and finite probability
+matrices with at least two columns, values in `[0, 1]`, and row sums within `1e-6`
+of one. Both periods must have the same number of columns, and callers must ensure
+the same semantic class order. Every class stays in the macro ECE and has a
+`class_{index}_rate` row, including classes absent from observed labels. Ties for
+the predicted class choose the first column. Inputs are not modified or normalized.
+Empty periods, invalid values, and missing labels raise `ValueError` identifying
+the affected period; they are never silently removed.
+
+For meaningful comparisons, supply predictions from a fixed model and calibrator,
+with consistent label definitions and observation windows. The API does not select
+dates or check model versions. Delayed labels and selective label availability can
+change which observations are evaluated; counts describe supplied labeled rows,
+not all production traffic. Population composition, sample size, sparse bins, and
+sampling variation can change metrics even without a change in the conditional
+prediction mechanism. These are descriptive differences, without significance
+tests, confidence intervals for changes, drift declarations, or alert rules.
+Comparing separate bootstrap interval overlap does not supply a test of the change.
+
+The offline `examples/run_period_comparison.py` fixes seed 42 and generates
+independent binary and three-class data. For each task, a logistic model fits 2000
+training rows and stays frozen for 1200 reference and 800 production rows. Training
+and reference features are independent standard normals; production features have
+mean `(0.8, -0.3)`. Labels are categorical draws from `softmax(X @ weights.T + bias)`.
+The source specifies separate production weights and biases, so this controlled
+example changes both the feature distribution and the label mechanism. It cannot
+attribute the observed metric differences to just one source of change.
+
+`period_comparison.csv` has 15 rows with an additional `task` column.
+`period_bins.csv` has 40 rows across task, period, and ten fixed bins. It uses
+binary positive-class calibration and multiclass pooled-confidence calibration,
+with consistent `mean_predicted_probability` and `observed_event_rate` column
+names; the latter is accuracy for multiclass rows. Empty bins retain zero counts,
+weights, and gaps with NaN means. `binary_period_predictions.csv` and
+`multiclass_period_predictions.csv` each retain 2000 evaluation rows with
+`probability_{index}`, `y_true`, and `period` columns, allowing both tables to be
+recomputed. `period_comparison.png` plots both periods and sample counts in two
+panels, leaving gaps at empty bins. Paths and generation settings are printed as JSON.
+
 ## Uncertainty
 
 Uncertainty estimation asks how much confidence we should place in predictions, intervals, or prediction sets. Conformal methods provide distribution-free finite-sample coverage under exchangeability assumptions.

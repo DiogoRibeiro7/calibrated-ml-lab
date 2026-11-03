@@ -20,6 +20,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Regularized multiclass matrix scaling for corrections that mix class logits (Python API).
 - Multiclass confidence, top-label, and class-wise calibration diagnostics.
 - Paired bootstrap confidence intervals for binary and multiclass calibration metrics.
+- Reference-versus-production calibration comparisons with sample counts and label frequencies.
 - Split conformal classification.
 - Multiclass split-conformal prediction sets (Python API).
 - Split conformal regression intervals.
@@ -56,6 +57,7 @@ calibrated-ml-lab/
 │   ├── calibration/
 │   ├── conformal/
 │   ├── models/
+│   ├── monitoring/
 │   ├── uncertainty/
 │   ├── visualization/
 │   ├── sample_data.py
@@ -356,6 +358,28 @@ not include retraining variability, guarantee coverage, or establish calibration
 ECE/MCE intervals are particularly sensitive to sparse bins and near-zero errors.
 See [bootstrap metric intervals](docs/methodology.md#bootstrap-confidence-intervals-for-calibration-metrics)
 for metric definitions, input conventions, and limitations.
+
+## Compare reference and production periods
+
+`compare_binary_calibration` and `compare_multiclass_calibration` in
+`calibrated_ml_lab.monitoring.calibration` evaluate a fixed predictor on two
+labeled periods. Each table reports both periods, signed changes
+(`production - reference`), sample counts, and a common bin count. Metric
+categories separate calibration, overall probability quality, predictive
+performance, and sample summaries such as class frequencies.
+
+```bash
+poetry run python examples/run_period_comparison.py --output-dir .artifacts/period_comparison
+```
+
+The offline example fits binary and three-class models on independent training
+rows, freezes them, and evaluates separate reference and shifted production
+samples. It exports `period_comparison.csv`, `period_bins.csv`, the two periods'
+predictions for each task, and `period_comparison.png`. Unequal sample sizes and
+empty bins remain visible. Changes are descriptive; sampling variation, label
+availability, and population composition matter when interpreting them.
+See [period comparisons](docs/methodology.md#reference-and-production-period-comparisons)
+for the metric schema, input assumptions, and synthetic data design.
 
 ## Main outputs
 

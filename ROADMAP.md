@@ -77,7 +77,8 @@
 
 ## v0.5 — Monitoring integration
 
-- [ ] Compare calibration between reference and production periods.
+- [x] Compare binary and multiclass calibration between labeled reference and production
+  periods, with sample context, signed changes, and offline CSV/PNG diagnostics.
 - [ ] Add calibration drift metrics.
 - [ ] Add alert rules for ECE, Brier score, and coverage degradation.
 - [ ] Add slice-level calibration monitoring.

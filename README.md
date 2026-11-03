@@ -316,6 +316,25 @@ predictive mixture; its components do not establish calibrated uncertainty.
 See [ensemble moments](docs/methodology.md#regression-ensemble-variance-decomposition)
 for formulas, input conventions, and interpretation.
 
+## Epistemic and aleatoric uncertainty
+
+Run a controlled Bayesian linear regression example to see how parameter
+uncertainty changes with more training data, higher observation noise, and
+extrapolation. The observation-noise variance is known in this synthetic example.
+
+```bash
+poetry run python examples/run_uncertainty_sources.py --output-dir .artifacts/uncertainty_sources
+```
+
+It compares 20, 80, and 320 training rows at two noise levels, exporting scenario
+summaries, query-grid and test-prediction CSVs, and `uncertainty_sources.png`.
+Epistemic variance shrinks with more training rows in this model; the aleatoric
+noise floor remains. The summaries also report test MSE, observed coverage, and
+width of 90% Gaussian predictive intervals. These interpretations depend on the
+stated model and known noise, and do not certify uncertainty in arbitrary models.
+See [uncertainty sources](docs/methodology.md#epistemic-and-aleatoric-uncertainty-example)
+for the formulas, controlled comparisons, and limits.
+
 ## Main outputs
 
 ```text

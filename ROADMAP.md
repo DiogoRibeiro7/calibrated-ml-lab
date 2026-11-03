@@ -70,7 +70,8 @@
   exact finite-sample ranks, infinite small-sample bounds, and an offline evaluation.
 - [x] Add regression ensemble variance decomposition from member predictive means
   and variances, with equal mixture weights and offline CSV/PNG diagnostics.
-- [ ] Add epistemic vs aleatoric uncertainty examples.
+- [x] Add a controlled epistemic vs aleatoric uncertainty example with known-noise
+  Bayesian regression, nested training sizes, and offline CSV/PNG diagnostics.
 - [ ] Add bootstrap confidence intervals for calibration metrics.
 
 ## v0.5 — Monitoring integration

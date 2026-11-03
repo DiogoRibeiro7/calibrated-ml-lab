@@ -874,6 +874,95 @@ predicted total variance is about 0.577. The mismatch illustrates why computing
 the decomposition does not establish calibration; agreement between those two
 aggregate statistics would not establish conditional calibration either.
 
+## Epistemic and aleatoric uncertainty example
+
+`examples/run_uncertainty_sources.py` illustrates the distinction in a model
+where the two components have explicit meanings. Assume a linear conditional
+mean, independent Gaussian observation errors with known constant variance
+`sigma**2`, and a Gaussian prior on the intercept and slope:
+
+```text
+phi(x) = [1, x]
+y = phi(x) @ beta + epsilon
+epsilon ~ Normal(0, sigma**2)
+beta ~ Normal([0, 0], tau**2 * I)
+```
+
+With training design matrix `Phi` (one row per observation), the posterior and
+predictive moments are:
+
+```text
+S = (I / tau**2 + Phi.T @ Phi / sigma**2)**(-1)
+m = S @ Phi.T @ y / sigma**2
+
+mean_prediction(x)    = phi(x) @ m
+epistemic_variance(x) = phi(x) @ S @ phi(x).T
+aleatoric_variance(x) = sigma**2
+total_variance(x)     = epistemic_variance(x) + aleatoric_variance(x)
+```
+
+These follow the Gaussian linear-model posterior and predictive distribution in
+[Rasmussen and Williams, chapter 2, section 2.1](https://gaussianprocess.org/gpml/chapters/RW2.pdf).
+The epistemic term is posterior uncertainty about the latent mean. The aleatoric
+term is future observation noise conditional on the parameters. The example uses
+linear solves to compute the moments, without posterior sampling or a finite
+ensemble approximation. Its helpers are local to the example, not a new public
+regression estimator API.
+
+The experiment fixes seed 42 and generates `y = 1 + 2*x + sigma*z`, with
+`x ~ Uniform(-2, 2)` and independent standard-normal noise `z`. It uses a fixed
+prior variance `tau**2 = 25`, noise standard deviations 0.4 and 1.2, and training
+sizes 20, 80, and 320. Smaller training sets are prefixes of the largest one.
+Training inputs and standardized noise draws are reused across the two noise
+levels, making the comparison controlled rather than six independent datasets.
+
+The 1000 test inputs and standardized test errors are drawn separately from
+training and reused across scenarios. Test responses enter only the evaluation
+metrics; they do not fit parameters, estimate noise, select the prior, or choose
+the scenarios. A separate 401-point query grid spans `[-5, 5]` to show extrapolation.
+All six scenarios are fixed before evaluation.
+
+The example writes:
+
+- `uncertainty_sources_summary.csv`: one row per scenario, including training and
+  test counts, known noise level, nominal coverage, test MSE, mean component and
+  total variances, empirical predictive coverage, and mean interval width.
+- `uncertainty_sources_grid.csv`: grid inputs, predicted means, variance
+  components, and predictive bounds, with training-size and noise-level identifiers.
+- `uncertainty_sources_test.csv`: the same quantities on independent test rows,
+  with observed responses and a boolean coverage indicator.
+- `uncertainty_sources.png`: component means against training size, plus variance
+  curves across the query grid. Feature panels use a shared logarithmic variance
+  scale and mark the generating training-input domain.
+
+The reported intervals use `mean_prediction +/- z_0.95 * sqrt(total_variance)`.
+They are central 90% posterior predictive intervals for future noisy responses
+under this Gaussian model. Using only the epistemic term would instead describe
+uncertainty about the latent mean. These are not conformal intervals, and empirical
+test coverage need not equal 90% in a finite run. The fixed generating coefficients
+are not sampled from the prior, so posterior credibility should not be read as an
+exact repeated-sample coverage guarantee for those coefficients.
+
+In the seeded run, mean epistemic variance at noise SD 0.4 falls from about
+0.0174 with 20 training rows to 0.00102 with 320; aleatoric variance remains 0.16.
+Observed test coverage is 83.9%, 88.1%, and 89.0% for the three training sizes at
+both noise levels. The repeated percentages arise in this paired experiment;
+they are not independent replications or a general coverage result.
+
+For nested training designs with fixed prior and known noise, adding observations
+reduces posterior covariance; higher noise at a fixed design increases parameter
+uncertainty as well as observation variance. The aleatoric term stays constant
+across sample sizes. In this example epistemic variance also grows away from the
+observed input region. These comparisons are conditional on the specified linear
+model. They do not account for an incorrect mean function, unknown noise, missing
+features, or a change in the data-generating process. More data need not reveal
+shared model bias. Aleatoric uncertainty is irreducible relative to the chosen
+information and observation process, not necessarily to every possible measurement.
+
+The earlier `ensemble_regression_summary` can summarize approximations to such a
+posterior predictive mixture, but arbitrary bootstrap members and plug-in
+variances do not automatically recover these Bayesian uncertainty components.
+
 ## Multiclass conformal prediction
 
 `calibrated_ml_lab.conformal.multiclass` implements split conformal prediction with

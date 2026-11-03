@@ -19,6 +19,7 @@ The goal is not to make every model look confident. The goal is to make uncertai
 - Regularized multiclass vector scaling with class-specific weights and biases (Python API).
 - Regularized multiclass matrix scaling for corrections that mix class logits (Python API).
 - Multiclass confidence, top-label, and class-wise calibration diagnostics.
+- Paired bootstrap confidence intervals for binary and multiclass calibration metrics.
 - Split conformal classification.
 - Multiclass split-conformal prediction sets (Python API).
 - Split conformal regression intervals.
@@ -334,6 +335,27 @@ width of 90% Gaussian predictive intervals. These interpretations depend on the
 stated model and known noise, and do not certify uncertainty in arbitrary models.
 See [uncertainty sources](docs/methodology.md#epistemic-and-aleatoric-uncertainty-example)
 for the formulas, controlled comparisons, and limits.
+
+## Bootstrap intervals for calibration metrics
+
+`bootstrap_calibration_metrics` and `bootstrap_multiclass_calibration_metrics`
+in `calibrated_ml_lab.calibration.bootstrap` quantify evaluation-sample variation
+for fixed predictions. They return original metric estimates, percentile bounds,
+bootstrap standard errors, and the sample size, bin count, and resampling settings.
+Each draw resamples labels and their probability rows together.
+
+```bash
+poetry run python examples/run_calibration_bootstrap.py --output-dir .artifacts/calibration_bootstrap
+```
+
+The example fits models and temperature scalers on separate data, then exports
+`calibration_bootstrap_intervals.csv` and binary/multiclass test predictions.
+It uses 1000 resamples at a nominal 95% level; `--n-bootstrap` changes the count.
+The intervals describe uncertainty conditional on the fitted predictor. They do
+not include retraining variability, guarantee coverage, or establish calibration.
+ECE/MCE intervals are particularly sensitive to sparse bins and near-zero errors.
+See [bootstrap metric intervals](docs/methodology.md#bootstrap-confidence-intervals-for-calibration-metrics)
+for metric definitions, input conventions, and limitations.
 
 ## Main outputs
 

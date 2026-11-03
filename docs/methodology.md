@@ -35,6 +35,125 @@ Supplied order and duplicates are preserved; the default is 19 thresholds from
 nonnegative scalars; zero costs are allowed. Expected cost is the weighted sum
 of error rates, so finite costs do not overflow merely from summing across rows.
 
+## Bootstrap confidence intervals for calibration metrics
+
+`calibrated_ml_lab.calibration.bootstrap` provides two fixed-prediction APIs:
+
+| Function | Reported metrics |
+|---|---|
+| `bootstrap_calibration_metrics` | Binary `brier_score`, `log_loss`, `ece`, and `mce` |
+| `bootstrap_multiclass_calibration_metrics` | Multiclass `confidence_ece`, `top_label_ece`, and macro `classwise_ece` |
+
+Brier score and log loss measure overall probabilistic quality, not calibration
+alone. ROC AUC is excluded because it measures discrimination and is undefined
+for single-class resamples. The multiclass API uses the existing pooled-confidence,
+conditional top-label, and one-versus-rest class-wise definitions; every probability
+column stays in the macro average even when its label is absent from a resample.
+
+```python
+import numpy as np
+from calibrated_ml_lab.calibration.bootstrap import (
+    bootstrap_calibration_metrics,
+    bootstrap_multiclass_calibration_metrics,
+)
+
+y = np.array([0, 0, 1, 1])
+p = np.array([0.1, 0.4, 0.6, 0.9])
+binary = bootstrap_calibration_metrics(
+    y, p, n_bins=5, n_bootstrap=1000, confidence_level=0.95, random_state=42
+)
+multiclass = bootstrap_multiclass_calibration_metrics(
+    y, np.column_stack([1 - p, p]), n_bins=5, random_state=42
+)
+```
+
+Given `n` evaluation rows, each of `B = n_bootstrap` replicates draws `n` row indices
+uniformly with replacement. The same indices select both labels and full probability
+rows, preserving their association, and all metrics use the same resample. The method
+does not stratify by class, discard single-class resamples, or refit any model or
+calibrator. Bin edges stay fixed at the original equal-width partition of `[0, 1]`.
+This is the paired percentile procedure described in the
+[SciPy bootstrap documentation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.bootstrap.html).
+
+For metric `T`, the output estimate is `T(y, p)` on the original rows. With
+`q = (1 - confidence_level) / 2`, the bounds are the `q` and `1 - q` quantiles of
+the bootstrap metric values, using NumPy's linear interpolation. `standard_error`
+is the sample standard deviation of these values (`ddof=1`), not that deviation
+divided by `sqrt(B)`. Bounds are not forced to contain the original estimate.
+The implementation uses a local random generator and stores one index vector
+at a time plus the `B` by metric-count array; it does not materialize `B` datasets.
+
+Both functions return a DataFrame with these columns:
+
+| Column | Meaning |
+|---|---|
+| `metric` | Metric name, in the order listed above |
+| `estimate` | Original evaluation-sample metric |
+| `lower`, `upper` | Two-sided percentile endpoints |
+| `standard_error` | Bootstrap sample standard deviation |
+| `confidence_level` | Requested nominal confidence level |
+| `n_samples` | Original evaluation row count, also the size of every resample |
+| `n_bootstrap` | Number of resamples used |
+| `n_bins` | Fixed equal-width bin count |
+| `method` | Always `percentile` |
+
+At least two evaluation rows are required. The binary API accepts nonempty,
+aligned one-dimensional 0/1 labels and finite probabilities in `[0, 1]`. The
+multiclass API accepts integer class indices and finite probability matrices with
+at least two columns and row sums within `1e-6` of one. It retains all columns;
+a two-column matrix uses multiclass confidence/top-label semantics, which differ
+from binary positive-class calibration. Inputs are matched by position, including
+Pandas inputs, and are not modified. Numeric objects and boolean arrays follow
+the existing metric validators; strings, complex values, NaNs, and infinities are
+rejected. Probability endpoints stay intact for every metric except binary log
+loss, which uses the existing clipping to `[1e-12, 1 - 1e-12]`.
+
+`n_bins` is a positive integer (default 10), `n_bootstrap` is an integer at least
+two (default 1000), and `random_state` is an integer in `[0, 2**32 - 1]` (default
+42). Boolean options are rejected; NumPy integer scalars are accepted. The
+confidence level is a finite real scalar strictly between zero and one (default
+0.95), and must yield distinct representable quantiles inside `(0, 1)`. Repeating
+the same ordered inputs and settings reproduces results without altering global
+NumPy random state. A small replicate count is allowed for quick checks, but gives
+poor resolution of tail quantiles; assess stability with more resamples for analysis.
+
+These are **marginal, approximate sampling intervals**, conditional on the fitted
+predictor and chosen bins. They assume IID evaluation rows representative of the
+target population. They do not include training/calibration-set uncertainty,
+hyperparameter selection, bin selection, or future distribution shift. Clustered
+or time-dependent observations need an appropriate resampling design. Resampling
+training predictions does not repair optimistic evaluation or leakage.
+
+Percentile intervals do not correct the finite-sample bias or nonsmoothness of
+binned ECE/MCE. In particular, sparse bins and absolute gaps near zero can make
+bootstrap coverage unreliable. A positive ECE lower bound is not a general test
+that a predictor is miscalibrated. Identical or perfectly predicted observed rows
+can produce zero-width intervals; those cannot establish certainty about unseen
+data. Reporting several intervals does not give simultaneous coverage. Interval
+overlap, even with shared draws, is not a confidence interval or significance test
+for a difference between models. These APIs neither certify calibration nor
+produce prediction intervals for individual outcomes.
+
+The offline `examples/run_calibration_bootstrap.py` creates separate binary and
+three-class datasets with seed 42. For each, it fits a standardized logistic model
+on 1200 training rows, amplifies logits by three, fits temperature on 600 separate
+calibration rows, then freezes both raw and calibrated predictions on 600 test
+rows. The split, bin count, and interval settings are preset; the test responses
+are used only for evaluation. The default 1000 resamples yield 95% intervals for
+each predictor, using the same seed to pair the row draws across predictors.
+
+`calibration_bootstrap_intervals.csv` contains 14 rows with additional `task` and
+`predictor` columns. `binary_test_predictions.csv` and
+`multiclass_test_predictions.csv` retain test labels and the raw/calibrated
+probabilities so the intervals can be recomputed. The example prints paths and
+settings as JSON and accepts `--n-bootstrap` for a smaller or larger run. It does
+not select a predictor or interval method using these test results.
+
+In the seeded binary example, temperature scaling lowers test log loss from about
+0.173 to 0.0885 while ECE rises from about 0.0132 to 0.0207. Improvement in one
+diagnostic need not imply improvement in another; the individual intervals do
+not by themselves establish a significant difference between predictors.
+
 ## Uncertainty
 
 Uncertainty estimation asks how much confidence we should place in predictions, intervals, or prediction sets. Conformal methods provide distribution-free finite-sample coverage under exchangeability assumptions.
